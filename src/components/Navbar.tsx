@@ -1,17 +1,60 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
+import { useCart } from "@/context/CartContext";
 
 export default function Navbar() {
   const [isSocialsOpen, setIsSocialsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isLiveHovered, setIsLiveHovered] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<{
+    isLive: boolean;
+    videoId: string | null;
+    title: string | null;
+  }>({ isLive: false, videoId: null, title: null });
   const socialsButtonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const liveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { cart, setCartOpen } = useCart();
+  const itemCount = cart?.totalQuantity ?? 0;
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  // Poll YouTube live status
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkLive = async () => {
+      try {
+        const res = await fetch("/api/youtube/live");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled) setLiveStatus(data);
+      } catch {
+        // Silently fail — indicator just won't show
+      }
+    };
+
+    checkLive();
+    const interval = setInterval(checkLive, 60_000); // Re-check every 60s
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleLiveMouseEnter = useCallback(() => {
+    if (liveTimeoutRef.current) clearTimeout(liveTimeoutRef.current);
+    setIsLiveHovered(true);
+  }, []);
+
+  const handleLiveMouseLeave = useCallback(() => {
+    liveTimeoutRef.current = setTimeout(() => setIsLiveHovered(false), 200);
   }, []);
 
   const handleEventsClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
@@ -64,7 +107,7 @@ export default function Navbar() {
         style={getDropdownPosition()}
       >
         <a
-          href="https://instagram.com"
+          href="https://www.instagram.com/lateedition.mag/?hl=en"
           target="_blank"
           rel="noopener noreferrer"
           className="block border-b border-black/20 px-3 py-2 text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50"
@@ -72,20 +115,12 @@ export default function Navbar() {
           Instagram
         </a>
         <a
-          href="https://twitter.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block border-b border-black/20 px-3 py-2 text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50"
-        >
-          Twitter
-        </a>
-        <a
-          href="https://facebook.com"
+          href="https://www.youtube.com/@LateEditionLive"
           target="_blank"
           rel="noopener noreferrer"
           className="block px-3 py-2 text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50"
         >
-          Facebook
+          YouTube
         </a>
       </div>
     </>
@@ -125,13 +160,63 @@ export default function Navbar() {
           </div>
 
           {/* Center - Late Edition */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 flex items-center gap-2">
             <Link
               href="/#lookbook"
               className="text-sm md:text-lg font-normal tracking-tight text-black whitespace-nowrap"
             >
               LATE EDITION
             </Link>
+            {/* Live indicator — only visible when channel is streaming */}
+            {liveStatus.isLive && (
+              <div
+                className="relative flex items-center"
+                onMouseEnter={handleLiveMouseEnter}
+                onMouseLeave={handleLiveMouseLeave}
+              >
+                <a
+                  href={
+                    liveStatus.videoId
+                      ? `https://www.youtube.com/watch?v=${liveStatus.videoId}`
+                      : "https://www.youtube.com/@LateEditionLive"
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative flex items-center justify-center w-4 h-4 cursor-pointer"
+                  aria-label="Live on YouTube"
+                >
+                  <span className="absolute inline-flex h-2 w-2 rounded-full bg-red-500 opacity-75 animate-[live-ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite]" />
+                  <span className="relative inline-flex h-[6px] w-[6px] rounded-full bg-red-500" />
+                </a>
+                {/* Hover tooltip */}
+                <div
+                  className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 transition-all duration-200 ${
+                    isLiveHovered
+                      ? "opacity-100 translate-y-0 pointer-events-auto"
+                      : "opacity-0 -translate-y-1 pointer-events-none"
+                  }`}
+                  onMouseEnter={handleLiveMouseEnter}
+                  onMouseLeave={handleLiveMouseLeave}
+                >
+                  <a
+                    href={
+                      liveStatus.videoId
+                        ? `https://www.youtube.com/watch?v=${liveStatus.videoId}`
+                        : "https://www.youtube.com/@LateEditionLive"
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 whitespace-nowrap border border-black/20 backdrop-blur-md bg-white/80 px-3 py-1.5 text-[10px] uppercase tracking-wider text-black transition-opacity hover:opacity-50"
+                  >
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-[live-ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite]" />
+                      <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-red-500" />
+                    </span>
+                    Live on YouTube
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right side - 3 items + socials dropdown */}
@@ -163,6 +248,18 @@ export default function Navbar() {
                 Socials
               </button>
             </div>
+            <button
+              onClick={() => setCartOpen(true)}
+              className="relative text-[10px] md:text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50"
+              aria-label="Open cart"
+            >
+              Cart
+              {itemCount > 0 && (
+                <span className="absolute -top-2 -right-3 flex items-center justify-center min-w-[16px] h-4 px-1 text-[9px] font-medium bg-black text-white rounded-full leading-none">
+                  {itemCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
       </nav>
