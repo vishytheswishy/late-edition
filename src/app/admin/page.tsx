@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { PostMeta } from "@/lib/posts";
 import type { EventMeta } from "@/lib/events";
@@ -9,6 +9,20 @@ import type { AlbumMeta } from "@/lib/albums";
 type Tab = "posts" | "events" | "albums";
 
 export default function AdminPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white pt-16 md:pt-20 flex items-center justify-center">
+          <p className="text-sm text-black/40">Loading...</p>
+        </div>
+      }
+    >
+      <AdminContent />
+    </Suspense>
+  );
+}
+
+function AdminContent() {
   const [authenticated, setAuthenticated] = useState(false);
   const [checking, setChecking] = useState(true);
   const [password, setPassword] = useState("");
