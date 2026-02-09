@@ -164,15 +164,38 @@ function RotatingMagazine({
   const wholeRef = useRef<THREE.Group>(null);
 
   const smoothRotSpeed = useRef(0.5);
+  // Store the rotation snapshot when hold starts so we can lerp back to 0
+  const rotationSnapshot = useRef<number | null>(null);
 
   useFrame((_, delta) => {
+    if (!wholeRef.current) return;
+
     const isHolding = holdProgress > 0;
 
-    const targetSpeed = isHolding ? 0 : 0.5;
-    smoothRotSpeed.current +=
-      (targetSpeed - smoothRotSpeed.current) * Math.min(delta * 4, 1);
+    if (isHolding) {
+      // Capture snapshot on first hold frame
+      if (rotationSnapshot.current === null) {
+        rotationSnapshot.current = wholeRef.current.rotation.y;
+      }
 
-    if (wholeRef.current) {
+      // Normalize target to nearest multiple of 2PI (front-facing)
+      const snap = rotationSnapshot.current;
+      const target = Math.round(snap / (Math.PI * 2)) * (Math.PI * 2);
+
+      // Lerp toward the front-facing angle
+      wholeRef.current.rotation.y +=
+        (target - wholeRef.current.rotation.y) * Math.min(delta * 5, 1);
+
+      smoothRotSpeed.current = 0;
+    } else {
+      // Reset snapshot when released
+      rotationSnapshot.current = null;
+
+      // Smoothly ramp rotation speed back up
+      const targetSpeed = 0.5;
+      smoothRotSpeed.current +=
+        (targetSpeed - smoothRotSpeed.current) * Math.min(delta * 4, 1);
+
       wholeRef.current.rotation.y += delta * smoothRotSpeed.current;
     }
   });

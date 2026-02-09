@@ -253,26 +253,21 @@ export default function LookbookLayout() {
               </p>
             </div>
 
-            {/* ── Hold-progress label (fades in while holding) ── */}
+            {/* ── Background fill bar (hourglass-style progress) ── */}
             <AnimatePresence>
               {isHolding && (
                 <motion.div
-                  className="absolute inset-x-0 bottom-6 z-20 flex flex-col items-center pointer-events-none"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
+                  className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {/* Thin progress bar */}
-                  <div className="w-20 h-[2px] bg-black/10 rounded-full overflow-hidden mb-2">
-                    <div
-                      className="h-full bg-black/60 rounded-full transition-none"
-                      style={{ width: `${holdProgress * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] uppercase tracking-widest text-black/50 font-medium">
-                    {holdProgress < 1 ? "Opening\u2026" : "Read Issue"}
-                  </span>
+                  {/* Fill bar that rises from the bottom */}
+                  <div
+                    className="absolute inset-x-0 bottom-0 bg-black/[0.06] transition-none"
+                    style={{ height: `${holdProgress * 100}%` }}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>

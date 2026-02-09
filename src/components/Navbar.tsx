@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useCart } from "@/context/CartContext";
@@ -163,9 +164,16 @@ export default function Navbar() {
           <div className="flex-shrink-0 flex items-center gap-2">
             <Link
               href="/#lookbook"
-              className="text-sm md:text-lg font-normal tracking-tight text-black whitespace-nowrap"
+              className="flex items-center"
             >
-              LATE EDITION
+              <Image
+                src="/logo.png"
+                alt="Late Edition"
+                width={160}
+                height={32}
+                className="h-5 md:h-7 w-auto"
+                priority
+              />
             </Link>
             {/* Live indicator — only visible when channel is streaming */}
             {liveStatus.isLive && (
