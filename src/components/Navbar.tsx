@@ -25,27 +25,24 @@ export default function Navbar() {
     setMounted(true);
   }, []);
 
-  // Poll YouTube live status
+  // Check YouTube live status once per session (on mount only)
   useEffect(() => {
     let cancelled = false;
 
-    const checkLive = async () => {
-      try {
-        const res = await fetch("/api/youtube/live");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (!cancelled) setLiveStatus(data);
-      } catch {
+    fetch("/api/youtube/live")
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (data && !cancelled) setLiveStatus(data);
+      })
+      .catch(() => {
         // Silently fail — indicator just won't show
-      }
-    };
-
-    checkLive();
-    const interval = setInterval(checkLive, 60_000); // Re-check every 60s
+      });
 
     return () => {
       cancelled = true;
-      clearInterval(interval);
     };
   }, []);
 
@@ -164,14 +161,15 @@ export default function Navbar() {
           <div className="flex-shrink-0 flex items-center gap-2">
             <Link
               href="/#lookbook"
-              className="flex items-center"
+              className="relative overflow-hidden w-[160px] h-[28px] md:w-[220px] md:h-[36px]"
             >
               <Image
                 src="/logo.png"
                 alt="Late Edition"
-                width={160}
-                height={32}
-                className="h-5 md:h-7 w-auto"
+                fill
+                className="object-cover mix-blend-multiply"
+                style={{ objectPosition: '50% 44%' }}
+                sizes="(min-width: 768px) 220px, 160px"
                 priority
               />
             </Link>

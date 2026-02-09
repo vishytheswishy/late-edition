@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPostBySlug } from "@/lib/posts";
+import ArticleTTS from "@/components/ArticleTTS";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +54,8 @@ export default async function ArticlePage({
               />
             </div>
           )}
+
+          <ArticleTTS content={post.content} />
 
           <div
             className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-a:text-black prose-a:underline-offset-4 prose-img:rounded-lg"
