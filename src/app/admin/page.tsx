@@ -250,7 +250,7 @@ function AdminContent() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      const res = await fetch("/api/lookbook", { method: "PUT", body: formData });
       if (!res.ok) throw new Error("Upload failed");
       const { url } = await res.json();
       const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -265,9 +265,22 @@ function AdminContent() {
     }
   };
 
-  const removeLookbookImage = (id: string) => {
+  const removeLookbookImage = async (id: string) => {
+    const img = lookbookImages.find((i) => i.id === id);
+    if (img) {
+      // Delete the image from the blob
+      try {
+        await fetch("/api/lookbook", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: img.url }),
+        });
+      } catch {
+        // Continue removing from list even if blob delete fails
+      }
+    }
     setLookbookImages((prev) =>
-      prev.filter((img) => img.id !== id).map((img, i) => ({ ...img, order: i }))
+      prev.filter((i) => i.id !== id).map((i, idx) => ({ ...i, order: idx }))
     );
   };
 

@@ -1,4 +1,4 @@
-import { put, list } from "@vercel/blob";
+import { put, list, del } from "@vercel/blob";
 
 export interface LookbookImage {
   id: string;
@@ -40,6 +40,27 @@ export async function saveLookbookData(data: LookbookData): Promise<void> {
     addRandomSuffix: false,
     contentType: "application/json",
   });
+}
+
+export async function uploadLookbookImage(file: File): Promise<string> {
+  const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, "");
+  const blobPath = `lookbook/images/${Date.now()}-${sanitized}`;
+
+  const blob = await put(blobPath, file, {
+    access: "public",
+    addRandomSuffix: false,
+    contentType: file.type,
+  });
+
+  return blob.url;
+}
+
+export async function deleteLookbookImage(url: string): Promise<void> {
+  try {
+    await del(url);
+  } catch {
+    // Ignore errors if the blob doesn't exist
+  }
 }
 
 export function generateId(): string {
