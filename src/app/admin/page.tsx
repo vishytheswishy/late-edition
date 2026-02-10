@@ -6,7 +6,7 @@ import type { PostMeta } from "@/lib/posts";
 import type { EventMeta } from "@/lib/events";
 import type { AlbumMeta } from "@/lib/albums";
 import type { Mix, StaffPick, MusicData } from "@/lib/music";
-import type { LookbookImage, LookbookData } from "@/lib/lookbook";
+import type { LookbookImage } from "@/lib/lookbook";
 
 type Tab = "articles" | "events" | "albums" | "music" | "lookbook";
 
@@ -36,7 +36,6 @@ function AdminContent() {
   const [staffPicks, setStaffPicks] = useState<StaffPick[]>([]);
   const [musicSaving, setMusicSaving] = useState(false);
   const [lookbookImages, setLookbookImages] = useState<LookbookImage[]>([]);
-  const [lookbookSaving, setLookbookSaving] = useState(false);
   const [lookbookUploading, setLookbookUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -113,7 +112,7 @@ function AdminContent() {
     try {
       const res = await fetch("/api/lookbook?fresh");
       if (res.ok) {
-        const data: LookbookData = await res.json();
+        const data = await res.json();
         setLookbookImages(data.images || []);
       }
     } catch {
@@ -252,12 +251,7 @@ function AdminContent() {
       formData.append("file", file);
       const res = await fetch("/api/lookbook", { method: "PUT", body: formData });
       if (!res.ok) throw new Error("Upload failed");
-      const { url } = await res.json();
-      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      setLookbookImages((prev) => [
-        ...prev,
-        { id, url, order: prev.length },
-      ]);
+      await fetchLookbook();
     } catch {
       alert("Failed to upload image");
     } finally {
@@ -267,46 +261,17 @@ function AdminContent() {
 
   const removeLookbookImage = async (id: string) => {
     const img = lookbookImages.find((i) => i.id === id);
-    if (img) {
-      // Delete the image from the blob
-      try {
-        await fetch("/api/lookbook", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: img.url }),
-        });
-      } catch {
-        // Continue removing from list even if blob delete fails
-      }
-    }
-    setLookbookImages((prev) =>
-      prev.filter((i) => i.id !== id).map((i, idx) => ({ ...i, order: idx }))
-    );
-  };
-
-  const moveLookbookImage = (index: number, direction: -1 | 1) => {
-    setLookbookImages((prev) => {
-      const next = [...prev];
-      const target = index + direction;
-      if (target < 0 || target >= next.length) return prev;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next.map((img, i) => ({ ...img, order: i }));
-    });
-  };
-
-  const saveLookbook = async () => {
-    setLookbookSaving(true);
+    if (!img) return;
     try {
       const res = await fetch("/api/lookbook", {
-        method: "POST",
+        method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images: lookbookImages }),
+        body: JSON.stringify({ url: img.url }),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) throw new Error("Delete failed");
+      await fetchLookbook();
     } catch {
-      alert("Failed to save lookbook data");
-    } finally {
-      setLookbookSaving(false);
+      alert("Failed to delete image");
     }
   };
 
@@ -1100,22 +1065,6 @@ function AdminContent() {
                         className="p-3 border border-black/10 rounded-lg"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="flex flex-col gap-1 shrink-0">
-                            <button
-                              onClick={() => moveLookbookImage(index, -1)}
-                              disabled={index === 0}
-                              className="p-0.5 text-black/30 hover:text-black disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-xs"
-                            >
-                              ▲
-                            </button>
-                            <button
-                              onClick={() => moveLookbookImage(index, 1)}
-                              disabled={index === lookbookImages.length - 1}
-                              className="p-0.5 text-black/30 hover:text-black disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-xs"
-                            >
-                              ▼
-                            </button>
-                          </div>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={img.url}
@@ -1136,17 +1085,6 @@ function AdminContent() {
                     ))}
                   </div>
                 )}
-
-                {/* Save Button */}
-                <div className="flex justify-end pt-4 border-t border-black/10">
-                  <button
-                    onClick={saveLookbook}
-                    disabled={lookbookSaving}
-                    className="px-6 py-2.5 bg-black text-white rounded-lg text-sm hover:bg-black/80 disabled:opacity-50 transition-colors"
-                  >
-                    {lookbookSaving ? "Saving..." : "Save Lookbook"}
-                  </button>
-                </div>
               </div>
             )}
           </>

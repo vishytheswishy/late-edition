@@ -10,41 +10,29 @@ export interface LookbookData {
   images: LookbookImage[];
 }
 
-const INDEX_PATH = "lookbook/index.json";
+const IMAGES_PREFIX = "lookbook/images/";
 
+/**
+ * List all lookbook images stored in the blob under lookbook/images/.
+ * No index.json needed -- the blob listing IS the source of truth.
+ */
 export async function getLookbookData(): Promise<LookbookData> {
   try {
-    const { blobs } = await list({ prefix: "lookbook/index" });
-    const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
-
-    if (!indexBlob) {
-      return { images: [] };
-    }
-
-    const url = new URL(indexBlob.url);
-    url.searchParams.set("download", "1");
-    url.searchParams.set("_t", Date.now().toString());
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (!response.ok) return { images: [] };
-    return (await response.json()) as LookbookData;
+    const { blobs } = await list({ prefix: IMAGES_PREFIX });
+    const images: LookbookImage[] = blobs.map((blob, i) => ({
+      id: blob.pathname,
+      url: blob.url,
+      order: i,
+    }));
+    return { images };
   } catch {
     return { images: [] };
   }
 }
 
-export async function saveLookbookData(data: LookbookData): Promise<void> {
-  data.images.sort((a, b) => a.order - b.order);
-
-  await put(INDEX_PATH, JSON.stringify(data), {
-    access: "public",
-    addRandomSuffix: false,
-    contentType: "application/json",
-  });
-}
-
 export async function uploadLookbookImage(file: File): Promise<string> {
   const sanitized = file.name.replace(/[^a-zA-Z0-9._-]/g, "");
-  const blobPath = `lookbook/images/${Date.now()}-${sanitized}`;
+  const blobPath = `${IMAGES_PREFIX}${Date.now()}-${sanitized}`;
 
   const blob = await put(blobPath, file, {
     access: "public",
@@ -61,8 +49,4 @@ export async function deleteLookbookImage(url: string): Promise<void> {
   } catch {
     // Ignore errors if the blob doesn't exist
   }
-}
-
-export function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
