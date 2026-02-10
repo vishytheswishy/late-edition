@@ -44,7 +44,7 @@ export default async function ArticlePage({
             )}
           </header>
 
-          {post.coverImage && (
+          {post.coverImage && !post.content.includes("article-gallery") && (
             <div className="mb-10">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -58,7 +58,7 @@ export default async function ArticlePage({
           <ArticleTTS content={post.content} />
 
           <div
-            className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-a:text-black prose-a:underline-offset-4 prose-img:rounded-lg"
+            className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-a:text-black prose-a:underline-offset-4 prose-img:rounded-lg [&_.youtube-embed]:not-prose [&_.article-gallery]:not-prose [&_iframe]:rounded-xl"
             dangerouslySetInnerHTML={{ __html: post.content }}
           />
         </article>

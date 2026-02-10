@@ -26,7 +26,9 @@ export async function getEventIndex(): Promise<EventMeta[]> {
     const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
     if (!indexBlob) return [];
 
-    const response = await fetch(indexBlob.url, { cache: "no-store" });
+    const url = new URL(indexBlob.url);
+    url.searchParams.set("t", Date.now().toString());
+    const response = await fetch(url.toString(), { cache: "no-store" });
     if (!response.ok) return [];
     return (await response.json()) as EventMeta[];
   } catch {
@@ -38,6 +40,7 @@ export async function saveEventIndex(events: EventMeta[]): Promise<void> {
   await put(INDEX_PATH, JSON.stringify(events), {
     access: "public",
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: "application/json",
   });
 }
@@ -48,7 +51,9 @@ export async function getEvent(id: string): Promise<Event | null> {
     const eventBlob = blobs.find((b) => b.pathname === eventPath(id));
     if (!eventBlob) return null;
 
-    const response = await fetch(eventBlob.url, { cache: "no-store" });
+    const url = new URL(eventBlob.url);
+    url.searchParams.set("t", Date.now().toString());
+    const response = await fetch(url.toString(), { cache: "no-store" });
     if (!response.ok) return null;
     return (await response.json()) as Event;
   } catch {
@@ -67,6 +72,7 @@ export async function saveEvent(event: Event): Promise<void> {
   await put(eventPath(event.id), JSON.stringify(event), {
     access: "public",
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: "application/json",
   });
 }

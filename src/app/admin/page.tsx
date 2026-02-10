@@ -36,8 +36,11 @@ function AdminContent() {
   const [musicSaving, setMusicSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [importPreview, setImportPreview] = useState<{title: string; slug: string; date: string}[]>([]);
+  const [importPreview, setImportPreview] = useState<{title: string; slug: string; date: string; coverImage?: string; imageCount?: number; youtubeVideoId?: string}[]>([]);
   const [importStatus, setImportStatus] = useState("");
+  const [eventImporting, setEventImporting] = useState(false);
+  const [eventImportPreview, setEventImportPreview] = useState<{title: string; slug: string; dateTime: string; location: string; coverImage?: string}[]>([]);
+  const [eventImportStatus, setEventImportStatus] = useState("");
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -262,6 +265,45 @@ function AdminContent() {
     }
   };
 
+  const handleEventImportPreview = async () => {
+    setEventImporting(true);
+    setEventImportStatus("Fetching events from lateedition.org...");
+    try {
+      const res = await fetch("/api/events/scrape");
+      if (res.ok) {
+        const data = await res.json();
+        setEventImportPreview(data.events || []);
+        setEventImportStatus(`Found ${data.events?.length || 0} events`);
+      } else {
+        setEventImportStatus("Failed to fetch events");
+      }
+    } catch {
+      setEventImportStatus("Failed to fetch events");
+    } finally {
+      setEventImporting(false);
+    }
+  };
+
+  const handleEventImportSave = async () => {
+    setEventImporting(true);
+    setEventImportStatus("Importing events...");
+    try {
+      const res = await fetch("/api/events/scrape", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        setEventImportStatus(`Successfully imported ${data.saved || 0} events (${data.skipped || 0} already existed)`);
+        setEventImportPreview([]);
+        fetchEvents();
+      } else {
+        setEventImportStatus("Failed to import events");
+      }
+    } catch {
+      setEventImportStatus("Failed to import events");
+    } finally {
+      setEventImporting(false);
+    }
+  };
+
   const handleDeletePost = async (id: string, title: string) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
     try {
@@ -425,9 +467,23 @@ function AdminContent() {
                   {importPreview.length > 0 && (
                     <div className="space-y-2">
                       {importPreview.map((article) => (
-                        <div key={article.slug} className="flex items-center justify-between py-2 px-3 bg-black/[0.02] rounded text-sm">
-                          <span>{article.title}</span>
-                          <span className="text-black/40 text-xs">{article.date}</span>
+                        <div key={article.slug} className="flex items-center gap-3 py-2 px-3 bg-black/[0.02] rounded text-sm">
+                          {article.coverImage && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={article.coverImage}
+                              alt={article.title}
+                              className="w-12 h-12 object-cover rounded shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="block truncate">{article.title}</span>
+                            <span className="text-black/40 text-xs">
+                              {article.date}
+                              {article.imageCount ? ` · ${article.imageCount} photos` : ""}
+                              {article.youtubeVideoId ? " · YouTube" : ""}
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -502,23 +558,76 @@ function AdminContent() {
                   <h2 className="text-xl font-normal tracking-tight">
                     Events
                   </h2>
-                  <button
-                    onClick={() => router.push("/admin/events/new")}
-                    className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors"
-                  >
-                    New Event
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => router.push("/admin/events/new")}
+                      className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors"
+                    >
+                      New Event
+                    </button>
+                  </div>
                 </div>
+
+                {/* Import Section */}
+                <div className="mb-8 p-4 border border-dashed border-black/15 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-black/60">Import from lateedition.org</h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleEventImportPreview}
+                        disabled={eventImporting}
+                        className="px-3 py-1.5 text-sm border border-black/20 rounded hover:bg-black/5 transition-colors disabled:opacity-50"
+                      >
+                        {eventImporting ? "Fetching..." : "Preview"}
+                      </button>
+                      {eventImportPreview.length > 0 && (
+                        <button
+                          onClick={handleEventImportSave}
+                          disabled={eventImporting}
+                          className="px-3 py-1.5 text-sm bg-black text-white rounded hover:bg-black/80 transition-colors disabled:opacity-50"
+                        >
+                          {eventImporting ? "Importing..." : `Import ${eventImportPreview.length} Events`}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {eventImportStatus && (
+                    <p className="text-sm text-black/50 mb-3">{eventImportStatus}</p>
+                  )}
+                  {eventImportPreview.length > 0 && (
+                    <div className="space-y-2">
+                      {eventImportPreview.map((evt) => (
+                        <div key={evt.slug} className="flex items-center gap-3 py-2 px-3 bg-black/[0.02] rounded text-sm">
+                          {evt.coverImage && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={evt.coverImage}
+                              alt={evt.title}
+                              className="w-12 h-12 object-cover rounded shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <span className="block truncate">{evt.title}</span>
+                            <span className="text-black/40 text-xs">
+                              {evt.dateTime}{evt.location ? ` · ${evt.location}` : ""}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 {events.length === 0 ? (
                   <div className="text-center py-20">
                     <p className="text-black/40 text-sm mb-4">
                       No events yet
                     </p>
                     <button
-                      onClick={() => router.push("/admin/events/new")}
+                      onClick={handleEventImportPreview}
                       className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors"
                     >
-                      Create Your First Event
+                      Import from lateedition.org
                     </button>
                   </div>
                 ) : (

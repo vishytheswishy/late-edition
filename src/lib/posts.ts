@@ -26,7 +26,10 @@ export async function getPostIndex(): Promise<PostMeta[]> {
     const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
     if (!indexBlob) return [];
 
-    const response = await fetch(indexBlob.url, { cache: "no-store" });
+    // Add cache-busting param to bypass CDN caching on the blob URL
+    const url = new URL(indexBlob.url);
+    url.searchParams.set("t", Date.now().toString());
+    const response = await fetch(url.toString(), { cache: "no-store" });
     if (!response.ok) return [];
     return (await response.json()) as PostMeta[];
   } catch {
@@ -49,7 +52,10 @@ export async function getPost(id: string): Promise<Post | null> {
     const postBlob = blobs.find((b) => b.pathname === postPath(id));
     if (!postBlob) return null;
 
-    const response = await fetch(postBlob.url, { cache: "no-store" });
+    // Add cache-busting param to bypass CDN caching on the blob URL
+    const url = new URL(postBlob.url);
+    url.searchParams.set("t", Date.now().toString());
+    const response = await fetch(url.toString(), { cache: "no-store" });
     if (!response.ok) return null;
     return (await response.json()) as Post;
   } catch {

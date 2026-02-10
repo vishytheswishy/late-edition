@@ -43,7 +43,7 @@ export default async function EventPage({
             )}
           </header>
 
-          {event.coverImage && (
+          {event.coverImage && !event.content.includes("event-flyer") && (
             <div className="mb-10">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -55,7 +55,7 @@ export default async function EventPage({
           )}
 
           <div
-            className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-a:text-black prose-a:underline-offset-4 prose-img:rounded-lg"
+            className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-a:text-black prose-a:underline-offset-4 prose-img:rounded-lg [&_.event-flyer]:not-prose"
             dangerouslySetInnerHTML={{ __html: event.content }}
           />
         </article>
