@@ -113,7 +113,10 @@ export async function getMusicData(): Promise<MusicData> {
       }
     }
 
-    const response = await fetch(indexBlob.url, { cache: "no-store" });
+    const url = new URL(indexBlob.url);
+    url.searchParams.set("download", "1");
+    url.searchParams.set("_t", Date.now().toString());
+    const response = await fetch(url.toString(), { cache: "no-store" });
     if (!response.ok) return { mixes: [], staffPicks: [] };
     return (await response.json()) as MusicData;
   } catch {

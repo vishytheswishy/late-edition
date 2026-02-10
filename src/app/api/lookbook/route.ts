@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
-import { getMusicData, saveMusicData, type MusicData } from "@/lib/music";
+import {
+  getLookbookData,
+  saveLookbookData,
+  type LookbookData,
+} from "@/lib/lookbook";
 
 export async function GET(request: Request) {
   try {
-    const data = await getMusicData();
+    const data = await getLookbookData();
     const { searchParams } = new URL(request.url);
     const noCache = searchParams.has("fresh");
+
     return NextResponse.json(data, {
       headers: noCache
         ? { "Cache-Control": "no-store" }
@@ -14,7 +19,7 @@ export async function GET(request: Request) {
     });
   } catch {
     return NextResponse.json(
-      { error: "Failed to fetch music data" },
+      { error: "Failed to fetch lookbook data" },
       { status: 500 }
     );
   }
@@ -27,20 +32,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const data = (await request.json()) as MusicData;
+    const data = (await request.json()) as LookbookData;
 
-    if (!data.mixes || !data.staffPicks) {
+    if (!data.images) {
       return NextResponse.json(
-        { error: "mixes and staffPicks arrays are required" },
+        { error: "images array is required" },
         { status: 400 }
       );
     }
 
-    await saveMusicData(data);
+    await saveLookbookData(data);
     return NextResponse.json(data);
   } catch {
     return NextResponse.json(
-      { error: "Failed to save music data" },
+      { error: "Failed to save lookbook data" },
       { status: 500 }
     );
   }

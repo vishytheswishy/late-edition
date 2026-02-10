@@ -8,6 +8,7 @@ import {
   deletePost,
   type PostMeta,
 } from "@/lib/posts";
+// getPostIndex, savePostIndex used by PUT; deletePost used by DELETE
 
 export async function GET(
   _request: Request,
@@ -93,11 +94,6 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deletePost(id);
-
-    const index = await getPostIndex();
-    const newIndex = index.filter((p) => p.id !== id);
-    await savePostIndex(newIndex);
-
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

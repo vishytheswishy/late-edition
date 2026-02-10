@@ -98,11 +98,6 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteAlbum(id);
-
-    const index = await getAlbumIndex();
-    const newIndex = index.filter((a) => a.id !== id);
-    await saveAlbumIndex(newIndex);
-
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

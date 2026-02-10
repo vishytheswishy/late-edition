@@ -26,14 +26,28 @@ function albumPath(id: string) {
   return `albums/${id}.json`;
 }
 
+/** Fetch a blob URL, bypassing CDN edge cache with download param */
+async function fetchBlob(blobUrl: string): Promise<Response | null> {
+  try {
+    const url = new URL(blobUrl);
+    url.searchParams.set("download", "1");
+    url.searchParams.set("_t", Date.now().toString());
+    const response = await fetch(url.toString(), { cache: "no-store" });
+    if (response.ok) return response;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getAlbumIndex(): Promise<AlbumMeta[]> {
   try {
     const { blobs } = await list({ prefix: "albums/index" });
     const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
     if (!indexBlob) return [];
 
-    const response = await fetch(indexBlob.url, { cache: "no-store" });
-    if (!response.ok) return [];
+    const response = await fetchBlob(indexBlob.url);
+    if (!response) return [];
     return (await response.json()) as AlbumMeta[];
   } catch {
     return [];
@@ -54,8 +68,8 @@ export async function getAlbum(id: string): Promise<Album | null> {
     const albumBlob = blobs.find((b) => b.pathname === albumPath(id));
     if (!albumBlob) return null;
 
-    const response = await fetch(albumBlob.url, { cache: "no-store" });
-    if (!response.ok) return null;
+    const response = await fetchBlob(albumBlob.url);
+    if (!response) return null;
     return (await response.json()) as Album;
   } catch {
     return null;
@@ -78,13 +92,16 @@ export async function saveAlbum(album: Album): Promise<void> {
 }
 
 export async function deleteAlbum(id: string): Promise<void> {
-  try {
-    const { blobs } = await list({ prefix: `albums/${id}` });
-    const albumBlob = blobs.find((b) => b.pathname === albumPath(id));
-    if (albumBlob) {
-      await del(albumBlob.url);
-    }
-  } catch {
-    // Blob may not exist
+  // Remove from index first, then delete the blob
+  const index = await getAlbumIndex();
+  const updated = index.filter((a) => a.id !== id);
+  if (updated.length !== index.length) {
+    await saveAlbumIndex(updated);
+  }
+
+  // Delete the album blob
+  const { blobs } = await list({ prefix: `albums/${id}` });
+  for (const blob of blobs) {
+    await del(blob.url);
   }
 }

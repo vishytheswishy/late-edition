@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, Suspense, useCallback, useMemo } from "react";
+import { useRef, Suspense, useMemo } from "react";
 import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -150,67 +150,18 @@ function RotatingMagazine({
   frontCover,
   backCover,
   spineCover,
-  holdProgress,
-  onHoldStart,
-  onHoldEnd,
 }: {
   frontCover?: string;
   backCover?: string;
   spineCover?: string;
-  holdProgress: number;
-  onHoldStart?: () => void;
-  onHoldEnd?: () => void;
 }) {
   const wholeRef = useRef<THREE.Group>(null);
-
   const smoothRotSpeed = useRef(0.5);
-  // Store the rotation snapshot when hold starts so we can lerp back to 0
-  const rotationSnapshot = useRef<number | null>(null);
 
   useFrame((_, delta) => {
     if (!wholeRef.current) return;
-
-    const isHolding = holdProgress > 0;
-
-    if (isHolding) {
-      // Capture snapshot on first hold frame
-      if (rotationSnapshot.current === null) {
-        rotationSnapshot.current = wholeRef.current.rotation.y;
-      }
-
-      // Normalize target to nearest multiple of 2PI (front-facing)
-      const snap = rotationSnapshot.current;
-      const target = Math.round(snap / (Math.PI * 2)) * (Math.PI * 2);
-
-      // Lerp toward the front-facing angle
-      wholeRef.current.rotation.y +=
-        (target - wholeRef.current.rotation.y) * Math.min(delta * 5, 1);
-
-      smoothRotSpeed.current = 0;
-    } else {
-      // Reset snapshot when released
-      rotationSnapshot.current = null;
-
-      // Smoothly ramp rotation speed back up
-      const targetSpeed = 0.5;
-      smoothRotSpeed.current +=
-        (targetSpeed - smoothRotSpeed.current) * Math.min(delta * 4, 1);
-
-      wholeRef.current.rotation.y += delta * smoothRotSpeed.current;
-    }
+    wholeRef.current.rotation.y += delta * smoothRotSpeed.current;
   });
-
-  const handlePointerDown = useCallback(
-    (e: THREE.Event) => {
-      (e as unknown as { stopPropagation: () => void }).stopPropagation();
-      onHoldStart?.();
-    },
-    [onHoldStart]
-  );
-
-  const handlePointerUp = useCallback(() => {
-    onHoldEnd?.();
-  }, [onHoldEnd]);
 
   const spineX = -(COVER_W / 2);
 
@@ -219,17 +170,6 @@ function RotatingMagazine({
       ref={wholeRef}
       position={[0, 0, 0]}
       scale={0.85}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        document.body.style.cursor = "pointer";
-      }}
-      onPointerOut={() => {
-        document.body.style.cursor = "default";
-        onHoldEnd?.();
-      }}
     >
       {/* Spine */}
       <Suspense
@@ -284,16 +224,10 @@ function MagazineScene({
   frontCover,
   backCover,
   spineCover,
-  holdProgress,
-  onHoldStart,
-  onHoldEnd,
 }: {
   frontCover?: string;
   backCover?: string;
   spineCover?: string;
-  holdProgress: number;
-  onHoldStart?: () => void;
-  onHoldEnd?: () => void;
 }) {
   return (
     <>
@@ -301,9 +235,6 @@ function MagazineScene({
         frontCover={frontCover}
         backCover={backCover}
         spineCover={spineCover}
-        holdProgress={holdProgress}
-        onHoldStart={onHoldStart}
-        onHoldEnd={onHoldEnd}
       />
 
       <OrbitControls
@@ -322,16 +253,10 @@ export default function Magazine3D({
   frontCover,
   backCover,
   spineCover,
-  holdProgress = 0,
-  onHoldStart,
-  onHoldEnd,
 }: {
   frontCover?: string;
   backCover?: string;
   spineCover?: string;
-  holdProgress?: number;
-  onHoldStart?: () => void;
-  onHoldEnd?: () => void;
 }) {
   return (
     <Canvas
@@ -348,9 +273,6 @@ export default function Magazine3D({
         frontCover={frontCover}
         backCover={backCover}
         spineCover={spineCover}
-        holdProgress={holdProgress}
-        onHoldStart={onHoldStart}
-        onHoldEnd={onHoldEnd}
       />
     </Canvas>
   );

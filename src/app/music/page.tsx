@@ -40,7 +40,9 @@ export default function MusicPage() {
   const scrubbingRef = useRef(false);
   const [scrubPos, setScrubPos] = useState(0);
   const progressRef = useRef<HTMLDivElement>(null);
+  const mobileProgressRef = useRef<HTMLDivElement>(null);
   const [activeMixId, setActiveMixId] = useState<string | null>(null);
+  const [playerCollapsed, setPlayerCollapsed] = useState(true);
   const [swapKey, setSwapKey] = useState(0);
   const [coverArt, setCoverArt] = useState<string | undefined>(undefined);
   const pendingTrackUrl = useRef<string | null>(null);
@@ -101,6 +103,25 @@ export default function MusicPage() {
     }
   }, [loadTrack]);
 
+  const volumeBeforeScrub = useRef(state.volume);
+
+  const handleVinylScrub = useCallback(
+    (delta: number) => {
+      const newPos = Math.max(0, Math.min(1, state.position + delta));
+      seekTo(newPos);
+    },
+    [state.position, seekTo]
+  );
+
+  const handleVinylScrubStart = useCallback(() => {
+    volumeBeforeScrub.current = state.volume;
+    setVolume(0);
+  }, [state.volume, setVolume]);
+
+  const handleVinylScrubEnd = useCallback(() => {
+    setVolume(volumeBeforeScrub.current);
+  }, [setVolume]);
+
   // Keep coverArt in sync once the SoundCloud widget provides artwork
   useEffect(() => {
     if (state.artworkUrl) {
@@ -112,8 +133,9 @@ export default function MusicPage() {
 
   // Scrub helpers — use a ref so pointer-move/up always see latest value
   const getScrubPosition = useCallback((clientX: number) => {
-    if (!progressRef.current) return 0;
-    const rect = progressRef.current.getBoundingClientRect();
+    const el = mobileProgressRef.current ?? progressRef.current;
+    if (!el) return 0;
+    const rect = el.getBoundingClientRect();
     return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }, []);
 
@@ -184,6 +206,9 @@ export default function MusicPage() {
                   artworkUrl={coverArt}
                   swapKey={swapKey}
                   onPlaced={handleVinylPlaced}
+                  onScrub={activeMixId ? handleVinylScrub : undefined}
+                  onScrubStart={activeMixId ? handleVinylScrubStart : undefined}
+                  onScrubEnd={activeMixId ? handleVinylScrubEnd : undefined}
                 />
               </div>
 
@@ -196,109 +221,287 @@ export default function MusicPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 12 }}
                     transition={{ duration: 0.3 }}
-                    className="absolute bottom-5 left-5 right-5 md:left-6 md:right-6 md:bottom-6 z-10 bg-white/60 backdrop-blur-xl border border-white/30 rounded-xl shadow-lg px-5 py-4"
+                    className="absolute bottom-2 left-2 right-2 md:left-6 md:right-6 md:bottom-6 z-10 bg-white/60 backdrop-blur-xl border border-white/30 rounded-lg md:rounded-xl shadow-lg overflow-hidden"
                   >
-                    {/* Volume control — top right */}
-                    <div className="absolute top-3 right-4 flex items-center gap-2 group/vol">
-                      <div
-                        className="relative w-0 group-hover/vol:w-20 h-5 flex items-center overflow-hidden transition-all duration-200 cursor-pointer touch-none"
-                        onPointerDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const vol = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-                          setVolume(vol);
-                        }}
-                        onPointerMove={(e) => {
-                          if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return;
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const vol = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-                          setVolume(vol);
-                        }}
-                        onPointerUp={(e) => {
-                          (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-                        }}
-                      >
-                        <div className="absolute inset-x-0 h-[2px] bg-black/10 rounded-full overflow-hidden top-1/2 -translate-y-1/2">
-                          <div
-                            className="h-full bg-black/40 rounded-full transition-none"
-                            style={{ width: `${state.volume}%` }}
-                          />
-                        </div>
-                      </div>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="text-black/35 flex-shrink-0 cursor-pointer hover:text-black/60 transition-colors"
-                        onClick={() => setVolume(state.volume > 0 ? 0 : 80)}
-                      >
-                        {state.volume === 0 ? (
-                          <>
-                            <path d="M11 5L6 9H2v6h4l5 4V5z" />
-                            <line x1="23" y1="9" x2="17" y2="15" />
-                            <line x1="17" y1="9" x2="23" y2="15" />
-                          </>
-                        ) : (
-                          <>
-                            <path d="M11 5L6 9H2v6h4l5 4V5z" />
-                            {state.volume > 50 && (
-                              <path d="M19.07 4.93a10 10 0 010 14.14" />
-                            )}
-                            <path d="M15.54 8.46a5 5 0 010 7.07" />
-                          </>
-                        )}
-                      </svg>
-                    </div>
-
-                    <p className="text-[10px] uppercase tracking-widest text-black/40 mb-2">
-                      Now Playing
-                    </p>
-                    <h2 className="text-sm md:text-base font-medium tracking-tight text-black leading-snug mb-1 truncate">
-                      {activeMix.title}
-                    </h2>
-                    <p className="text-xs text-black/50 mb-4">{activeMix.artist}</p>
-
-                    {/* Scrubbable progress bar */}
-                    <div className="space-y-1.5">
-                      <div
-                        ref={progressRef}
-                        className="relative w-full h-5 flex items-center cursor-pointer group touch-none select-none"
-                        onPointerDown={handleScrubStart}
-                        onPointerMove={handleScrubMove}
-                        onPointerUp={handleScrubEnd}
-                        onPointerCancel={handleScrubEnd}
-                        onLostPointerCapture={() => {
-                          if (scrubbingRef.current) {
-                            scrubbingRef.current = false;
-                            setScrubbing(false);
-                          }
-                        }}
-                      >
-                        <div className="absolute inset-x-0 h-[2px] bg-black/10 rounded-full overflow-hidden top-1/2 -translate-y-1/2">
-                          <div
-                            className="h-full bg-black/50 rounded-full transition-none"
-                            style={{ width: `${displayPosition * 100}%` }}
-                          />
-                        </div>
+                    {/* ── Mobile: collapsed mini bar ── */}
+                    <div
+                      className="md:hidden cursor-pointer"
+                      onClick={() => setPlayerCollapsed((c) => !c)}
+                    >
+                      {/* Thin progress line at top */}
+                      <div className="h-[2px] bg-black/10 w-full">
                         <div
-                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
-                          style={{ left: `${displayPosition * 100}%` }}
+                          className="h-full bg-black/40 transition-none"
+                          style={{ width: `${displayPosition * 100}%` }}
                         />
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-[10px] text-black/30 tabular-nums">
+
+                      <div className="flex items-center gap-2 px-3 py-2">
+                        {/* Play/pause button */}
+                        <button
+                          className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-sm active:scale-95 transition-transform"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggle();
+                          }}
+                        >
+                          {state.isPlaying ? (
+                            <svg width="10" height="10" viewBox="0 0 14 14" fill="currentColor" className="text-black">
+                              <rect x="1" y="1" width="4" height="12" rx="1" />
+                              <rect x="9" y="1" width="4" height="12" rx="1" />
+                            </svg>
+                          ) : (
+                            <svg width="10" height="10" viewBox="0 0 14 14" fill="currentColor" className="text-black ml-0.5">
+                              <path d="M3 1.5v11l9-5.5L3 1.5z" />
+                            </svg>
+                          )}
+                        </button>
+
+                        {/* Track info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium text-black truncate leading-tight">
+                            {activeMix.title}
+                          </p>
+                          <p className="text-[10px] text-black/40 truncate leading-tight">
+                            {activeMix.artist}
+                          </p>
+                        </div>
+
+                        {/* Time */}
+                        <span className="text-[10px] text-black/30 tabular-nums flex-shrink-0">
                           {formatTime(displayPosition * state.duration)}
                         </span>
-                        <span className="text-[10px] text-black/30 tabular-nums">
-                          {state.duration > 0 ? formatTime(state.duration) : "--:--"}
-                        </span>
+
+                        {/* Chevron */}
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className={`text-black/30 flex-shrink-0 transition-transform duration-200 ${playerCollapsed ? "" : "rotate-180"}`}
+                        >
+                          <polyline points="18 15 12 9 6 15" />
+                        </svg>
+                      </div>
+
+                      {/* ── Mobile expanded content ── */}
+                      <AnimatePresence>
+                        {!playerCollapsed && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: "easeInOut" }}
+                            className="overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="px-3 pb-2.5 pt-0.5 space-y-2">
+                              {/* Scrubbable progress bar */}
+                              <div className="space-y-1">
+                                <div
+                                  ref={mobileProgressRef}
+                                  className="relative w-full h-5 flex items-center cursor-pointer group touch-none select-none"
+                                  onPointerDown={handleScrubStart}
+                                  onPointerMove={handleScrubMove}
+                                  onPointerUp={handleScrubEnd}
+                                  onPointerCancel={handleScrubEnd}
+                                  onLostPointerCapture={() => {
+                                    if (scrubbingRef.current) {
+                                      scrubbingRef.current = false;
+                                      setScrubbing(false);
+                                    }
+                                  }}
+                                >
+                                  <div className="absolute inset-x-0 h-[2px] bg-black/10 rounded-full overflow-hidden top-1/2 -translate-y-1/2">
+                                    <div
+                                      className="h-full bg-black/50 rounded-full transition-none"
+                                      style={{ width: `${displayPosition * 100}%` }}
+                                    />
+                                  </div>
+                                  <div
+                                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                                    style={{ left: `${displayPosition * 100}%` }}
+                                  />
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-[10px] text-black/30 tabular-nums">
+                                    {formatTime(displayPosition * state.duration)}
+                                  </span>
+                                  <span className="text-[10px] text-black/30 tabular-nums">
+                                    {state.duration > 0 ? formatTime(state.duration) : "--:--"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Volume */}
+                              <div className="flex items-center gap-2">
+                                <svg
+                                  width="12"
+                                  height="12"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="text-black/35 flex-shrink-0 cursor-pointer"
+                                  onClick={() => setVolume(state.volume > 0 ? 0 : 80)}
+                                >
+                                  {state.volume === 0 ? (
+                                    <>
+                                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                                      <line x1="23" y1="9" x2="17" y2="15" />
+                                      <line x1="17" y1="9" x2="23" y2="15" />
+                                    </>
+                                  ) : (
+                                    <>
+                                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                                      <path d="M15.54 8.46a5 5 0 010 7.07" />
+                                    </>
+                                  )}
+                                </svg>
+                                <div
+                                  className="relative flex-1 h-5 flex items-center cursor-pointer touch-none"
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const vol = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                                    setVolume(vol);
+                                  }}
+                                  onPointerMove={(e) => {
+                                    if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return;
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const vol = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                                    setVolume(vol);
+                                  }}
+                                  onPointerUp={(e) => {
+                                    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+                                  }}
+                                >
+                                  <div className="absolute inset-x-0 h-[2px] bg-black/10 rounded-full overflow-hidden top-1/2 -translate-y-1/2">
+                                    <div
+                                      className="h-full bg-black/40 rounded-full transition-none"
+                                      style={{ width: `${state.volume}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* ── Desktop: full player (unchanged) ── */}
+                    <div className="hidden md:block px-5 py-4">
+                      {/* Volume control — top right */}
+                      <div className="absolute top-3 right-4 flex items-center gap-2 group/vol">
+                        <div
+                          className="relative w-0 group-hover/vol:w-20 h-5 flex items-center overflow-hidden transition-all duration-200 cursor-pointer touch-none"
+                          onPointerDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const vol = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                            setVolume(vol);
+                          }}
+                          onPointerMove={(e) => {
+                            if (!(e.currentTarget as HTMLElement).hasPointerCapture(e.pointerId)) return;
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const vol = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                            setVolume(vol);
+                          }}
+                          onPointerUp={(e) => {
+                            (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+                          }}
+                        >
+                          <div className="absolute inset-x-0 h-[2px] bg-black/10 rounded-full overflow-hidden top-1/2 -translate-y-1/2">
+                            <div
+                              className="h-full bg-black/40 rounded-full transition-none"
+                              style={{ width: `${state.volume}%` }}
+                            />
+                          </div>
+                        </div>
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-black/35 flex-shrink-0 cursor-pointer hover:text-black/60 transition-colors"
+                          onClick={() => setVolume(state.volume > 0 ? 0 : 80)}
+                        >
+                          {state.volume === 0 ? (
+                            <>
+                              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                              <line x1="23" y1="9" x2="17" y2="15" />
+                              <line x1="17" y1="9" x2="23" y2="15" />
+                            </>
+                          ) : (
+                            <>
+                              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                              {state.volume > 50 && (
+                                <path d="M19.07 4.93a10 10 0 010 14.14" />
+                              )}
+                              <path d="M15.54 8.46a5 5 0 010 7.07" />
+                            </>
+                          )}
+                        </svg>
+                      </div>
+
+                      <p className="text-[10px] uppercase tracking-widest text-black/40 mb-2">
+                        Now Playing
+                      </p>
+                      <h2 className="text-base font-medium tracking-tight text-black leading-snug mb-1 truncate">
+                        {activeMix.title}
+                      </h2>
+                      <p className="text-xs text-black/50 mb-4">{activeMix.artist}</p>
+
+                      {/* Scrubbable progress bar */}
+                      <div className="space-y-1.5">
+                        <div
+                          ref={progressRef}
+                          className="relative w-full h-5 flex items-center cursor-pointer group touch-none select-none"
+                          onPointerDown={handleScrubStart}
+                          onPointerMove={handleScrubMove}
+                          onPointerUp={handleScrubEnd}
+                          onPointerCancel={handleScrubEnd}
+                          onLostPointerCapture={() => {
+                            if (scrubbingRef.current) {
+                              scrubbingRef.current = false;
+                              setScrubbing(false);
+                            }
+                          }}
+                        >
+                          <div className="absolute inset-x-0 h-[2px] bg-black/10 rounded-full overflow-hidden top-1/2 -translate-y-1/2">
+                            <div
+                              className="h-full bg-black/50 rounded-full transition-none"
+                              style={{ width: `${displayPosition * 100}%` }}
+                            />
+                          </div>
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                            style={{ left: `${displayPosition * 100}%` }}
+                          />
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-[10px] text-black/30 tabular-nums">
+                            {formatTime(displayPosition * state.duration)}
+                          </span>
+                          <span className="text-[10px] text-black/30 tabular-nums">
+                            {state.duration > 0 ? formatTime(state.duration) : "--:--"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </motion.div>

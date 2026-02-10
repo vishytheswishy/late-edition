@@ -93,11 +93,6 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteEvent(id);
-
-    const index = await getEventIndex();
-    const newIndex = index.filter((e) => e.id !== id);
-    await saveEventIndex(newIndex);
-
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

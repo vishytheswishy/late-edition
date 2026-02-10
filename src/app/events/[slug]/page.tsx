@@ -20,7 +20,7 @@ export default async function EventPage({
     <div className="min-h-screen bg-white pt-16 md:pt-20">
       <main className="container mx-auto px-4 py-16 max-w-3xl">
         <Link
-          href="/#events"
+          href="/events"
           className="text-sm text-black/40 hover:text-black/60 transition-colors"
         >
           &larr; All Events

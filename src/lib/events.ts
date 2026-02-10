@@ -20,16 +20,28 @@ function eventPath(id: string) {
   return `events/${id}.json`;
 }
 
+/** Fetch a blob URL, bypassing CDN edge cache with download param */
+async function fetchBlob(blobUrl: string): Promise<Response | null> {
+  try {
+    const url = new URL(blobUrl);
+    url.searchParams.set("download", "1");
+    url.searchParams.set("_t", Date.now().toString());
+    const response = await fetch(url.toString(), { cache: "no-store" });
+    if (response.ok) return response;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getEventIndex(): Promise<EventMeta[]> {
   try {
     const { blobs } = await list({ prefix: "events/index" });
     const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
     if (!indexBlob) return [];
 
-    const url = new URL(indexBlob.url);
-    url.searchParams.set("t", Date.now().toString());
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (!response.ok) return [];
+    const response = await fetchBlob(indexBlob.url);
+    if (!response) return [];
     return (await response.json()) as EventMeta[];
   } catch {
     return [];
@@ -51,10 +63,8 @@ export async function getEvent(id: string): Promise<Event | null> {
     const eventBlob = blobs.find((b) => b.pathname === eventPath(id));
     if (!eventBlob) return null;
 
-    const url = new URL(eventBlob.url);
-    url.searchParams.set("t", Date.now().toString());
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (!response.ok) return null;
+    const response = await fetchBlob(eventBlob.url);
+    if (!response) return null;
     return (await response.json()) as Event;
   } catch {
     return null;
@@ -78,13 +88,16 @@ export async function saveEvent(event: Event): Promise<void> {
 }
 
 export async function deleteEvent(id: string): Promise<void> {
-  try {
-    const { blobs } = await list({ prefix: `events/${id}` });
-    const eventBlob = blobs.find((b) => b.pathname === eventPath(id));
-    if (eventBlob) {
-      await del(eventBlob.url);
-    }
-  } catch {
-    // Blob may not exist
+  // Remove from index first, then delete the blob
+  const index = await getEventIndex();
+  const updated = index.filter((e) => e.id !== id);
+  if (updated.length !== index.length) {
+    await saveEventIndex(updated);
+  }
+
+  // Delete the event blob
+  const { blobs } = await list({ prefix: `events/${id}` });
+  for (const blob of blobs) {
+    await del(blob.url);
   }
 }

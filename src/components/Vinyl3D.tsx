@@ -243,23 +243,108 @@ function Platter({
   artworkUrl,
   swapKey,
   onPlaced,
+  onScrub,
+  onScrubStart,
+  onScrubEnd,
 }: {
   isPlaying: boolean;
   artworkUrl?: string;
   swapKey: number;
   onPlaced?: () => void;
+  onScrub?: (delta: number) => void;
+  onScrubStart?: () => void;
+  onScrubEnd?: () => void;
 }) {
   const ref = useRef<THREE.Group>(null);
   const speed = useRef(0);
+  const onScrubRef = useRef(onScrub);
+  onScrubRef.current = onScrub;
+  const onScrubStartRef = useRef(onScrubStart);
+  onScrubStartRef.current = onScrubStart;
+  const onScrubEndRef = useRef(onScrubEnd);
+  onScrubEndRef.current = onScrubEnd;
+
+  // Scrub state
+  const dragging = useRef(false);
+  const lastAngle = useRef(0);
+  // Manual rotation offset applied on top of auto-spin while scratching
+  const manualRotation = useRef(0);
+
+  /** Get the angle (radians) of a pointer hit relative to platter center in world XZ plane */
+  const getHitAngle = useCallback((e: ThreeEvent<PointerEvent>) => {
+    const pt = e.point.clone();
+    if (ref.current) ref.current.worldToLocal(pt);
+    return Math.atan2(pt.x, pt.z);
+  }, []);
+
+  const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
+    if (!onScrubRef.current) return;
+    e.stopPropagation();
+    dragging.current = true;
+    lastAngle.current = getHitAngle(e);
+    manualRotation.current = 0;
+    (e.nativeEvent.target as HTMLElement)?.setPointerCapture?.(e.nativeEvent.pointerId);
+    document.body.style.cursor = "grabbing";
+    onScrubStartRef.current?.();
+  }, [getHitAngle]);
+
+  const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
+    if (!dragging.current) return;
+    const angle = getHitAngle(e);
+    let delta = angle - lastAngle.current;
+    // Normalise to [-PI, PI] to handle wrap-around
+    if (delta > Math.PI) delta -= 2 * Math.PI;
+    if (delta < -Math.PI) delta += 2 * Math.PI;
+    lastAngle.current = angle;
+
+    // Rotate the vinyl to follow the user's hand
+    manualRotation.current += delta;
+
+    // Convert angular delta to a position fraction
+    // One full rotation (2*PI) ≈ 1/30 of the track for responsive feel
+    const positionDelta = delta / (2 * Math.PI * 30);
+    onScrubRef.current?.(positionDelta);
+  }, [getHitAngle]);
+
+  const handlePointerUp = useCallback(() => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    manualRotation.current = 0;
+    document.body.style.cursor = "default";
+    onScrubEndRef.current?.();
+  }, []);
 
   useFrame((_, dt) => {
-    const target = isPlaying ? 1.2 : 0;
-    speed.current += (target - speed.current) * Math.min(dt * 3, 1);
-    if (ref.current) ref.current.rotation.y += dt * speed.current;
+    if (!ref.current) return;
+
+    if (dragging.current) {
+      // While scratching: stop auto-spin, apply the manual rotation directly
+      speed.current = 0;
+      ref.current.rotation.y += manualRotation.current;
+      manualRotation.current = 0;
+    } else {
+      // Normal playback spin (or decelerating to stop)
+      const target = isPlaying ? 1.2 : 0;
+      speed.current += (target - speed.current) * Math.min(dt * 3, 1);
+      ref.current.rotation.y += dt * speed.current;
+    }
   });
 
   return (
     <group ref={ref}>
+      {/* Invisible interaction disc covering the full record — catches all pointer events */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, PLATTER_THICKNESS + RECORD_THICKNESS + 0.005, 0]}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerUp}
+      >
+        <circleGeometry args={[RECORD_RADIUS, 64]} />
+        <meshBasicMaterial transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} />
+      </mesh>
+
       <mesh position={[0, PLATTER_THICKNESS / 2, 0]}>
         <cylinderGeometry args={[PLATTER_RADIUS, PLATTER_RADIUS, PLATTER_THICKNESS, 64]} />
         <meshPhongMaterial color={PLATTER_COLOR} specular="#888888" shininess={100} />
@@ -502,12 +587,18 @@ function TurntableScene({
   artworkUrl,
   swapKey,
   onPlaced,
+  onScrub,
+  onScrubStart,
+  onScrubEnd,
 }: {
   isPlaying: boolean;
   onToggle?: () => void;
   artworkUrl?: string;
   swapKey: number;
   onPlaced?: () => void;
+  onScrub?: (delta: number) => void;
+  onScrubStart?: () => void;
+  onScrubEnd?: () => void;
 }) {
   return (
     <>
@@ -519,7 +610,7 @@ function TurntableScene({
         <TurntableBase />
 
         <group position={[-0.35, BASE_H, 0]}>
-          <Platter isPlaying={isPlaying} artworkUrl={artworkUrl} swapKey={swapKey} onPlaced={onPlaced} />
+          <Platter isPlaying={isPlaying} artworkUrl={artworkUrl} swapKey={swapKey} onPlaced={onPlaced} onScrub={onScrub} onScrubStart={onScrubStart} onScrubEnd={onScrubEnd} />
         </group>
 
         <Tonearm isPlaying={isPlaying} />
@@ -536,12 +627,18 @@ export default function Vinyl3D({
   artworkUrl,
   swapKey = 0,
   onPlaced,
+  onScrub,
+  onScrubStart,
+  onScrubEnd,
 }: {
   isPlaying?: boolean;
   onToggle?: () => void;
   artworkUrl?: string;
   swapKey?: number;
   onPlaced?: () => void;
+  onScrub?: (delta: number) => void;
+  onScrubStart?: () => void;
+  onScrubEnd?: () => void;
 }) {
   return (
     <Canvas
@@ -556,11 +653,8 @@ export default function Vinyl3D({
     >
       <OrbitControls
         enablePan={false}
-        enableZoom={true}
-        minDistance={4}
-        maxDistance={14}
-        minPolarAngle={0.2}
-        maxPolarAngle={Math.PI / 2.2}
+        enableZoom={false}
+        enableRotate={false}
       />
       <TurntableScene
         isPlaying={isPlaying}
@@ -568,6 +662,9 @@ export default function Vinyl3D({
         artworkUrl={artworkUrl}
         swapKey={swapKey}
         onPlaced={onPlaced}
+        onScrub={onScrub}
+        onScrubStart={onScrubStart}
+        onScrubEnd={onScrubEnd}
       />
     </Canvas>
   );

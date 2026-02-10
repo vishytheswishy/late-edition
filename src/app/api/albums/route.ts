@@ -9,14 +9,20 @@ import {
   type AlbumMeta,
 } from "@/lib/albums";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const albums = await getAlbumIndex();
     const sorted = albums.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-    return NextResponse.json(sorted);
+    const { searchParams } = new URL(request.url);
+    const noCache = searchParams.has("fresh");
+    return NextResponse.json(sorted, {
+      headers: noCache
+        ? { "Cache-Control": "no-store" }
+        : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=60" },
+    });
   } catch {
     return NextResponse.json(
       { error: "Failed to fetch albums" },

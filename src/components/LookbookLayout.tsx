@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -30,27 +30,6 @@ type CellType = {
   imageSrc?: string;
 };
 
-// Dynamically build list of webp files from public/lookbook folder
-const LOOKBOOK_IMAGES = [
-  "DSC00086.webp",
-  "DSC00279.webp",
-  "DSC00303.webp",
-  "DSC00330.webp",
-  "DSC08894.webp",
-  "DSC09047.webp",
-  "DSC09228.webp",
-  "DSC09306.webp",
-  "DSC09675.webp",
-  "DSC09702.webp",
-  "DSC09754.webp",
-  "DSC09797.webp",
-  "DSC09968.webp",
-  "LE+BEACH+TEST-3.webp",
-];
-
-// Generate WEBP_FILES with full paths
-const WEBP_FILES = LOOKBOOK_IMAGES.map((image) => `/lookbook/${image}`);
-
 // Shuffle array function
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array];
@@ -61,64 +40,40 @@ function shuffleArray<T>(array: T[]): T[] {
   return shuffled;
 }
 
-// --- Long-press constants ---
-const HOLD_DURATION_MS = 1000; // how long the user must hold
-const TICK_MS = 16; // ~60 fps progress updates
-
 export default function LookbookLayout() {
   const router = useRouter();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [isMobile, setIsMobile] = useState(false);
-  const [shuffledImages, setShuffledImages] = useState<string[]>(WEBP_FILES);
+  const [shuffledImages, setShuffledImages] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
-
-  // Long-press state
-  const [holdProgress, setHoldProgress] = useState(0); // 0 → 1
-  const [isHolding, setIsHolding] = useState(false);
-  const holdInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-  const holdStart = useRef<number>(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const navigated = useRef(false);
 
-  // Clean up interval on unmount
-  useEffect(() => {
-    return () => {
-      if (holdInterval.current) clearInterval(holdInterval.current);
-    };
-  }, []);
-
-  const startHold = useCallback(() => {
+  const handleExplore = () => {
     if (navigated.current) return;
-    setIsHolding(true);
-    holdStart.current = Date.now();
-    setHoldProgress(0);
-
-    holdInterval.current = setInterval(() => {
-      const elapsed = Date.now() - holdStart.current;
-      const progress = Math.min(elapsed / HOLD_DURATION_MS, 1);
-      setHoldProgress(progress);
-
-      if (progress >= 1) {
-        // Hold complete – navigate
-        if (holdInterval.current) clearInterval(holdInterval.current);
-        holdInterval.current = null;
-        navigated.current = true;
-        setIsHolding(false);
-        router.push("/articles");
-      }
-    }, TICK_MS);
-  }, [router]);
-
-  const cancelHold = useCallback(() => {
-    if (holdInterval.current) clearInterval(holdInterval.current);
-    holdInterval.current = null;
-    setIsHolding(false);
-    setHoldProgress(0);
-  }, []);
+    navigated.current = true;
+    setIsTransitioning(true);
+    // Let the white flash reach full opacity, then navigate
+    setTimeout(() => {
+      router.push("/articles");
+    }, 500);
+  };
 
   useEffect(() => {
-    // Shuffle images only on client side after hydration
-    setShuffledImages(shuffleArray(WEBP_FILES));
-    
+    // Fetch lookbook images from the API, fall back to defaults
+    fetch("/api/lookbook")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const urls =
+          data?.images?.length > 0
+            ? data.images.map((img: { url: string }) => img.url)
+            : [];
+        setShuffledImages(shuffleArray(urls));
+      })
+      .catch(() => {
+        setShuffledImages([]);
+      });
+
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -233,17 +188,13 @@ export default function LookbookLayout() {
           className="relative w-full md:w-1/3 h-full md:h-full flex-shrink-0 border-b md:border-b-0 md:border-r border-black/10 transition-opacity duration-500"
           style={{ 
             opacity: isLoaded ? 1 : 0,
-            transitionDelay: isLoaded ? '0ms' : '0ms'
           }}
         >
-          <div className="relative h-full w-full overflow-hidden bg-gray-50 cursor-pointer select-none">
+          <div className="relative h-full w-full overflow-hidden bg-gray-50 select-none">
             <Magazine3D
               frontCover="/cover/front.jpg"
               backCover="/cover/back.jpg"
               spineCover="/cover/spine.jpg"
-              holdProgress={holdProgress}
-              onHoldStart={startHold}
-              onHoldEnd={cancelHold}
             />
 
             {/* Issue number overlay */}
@@ -253,41 +204,25 @@ export default function LookbookLayout() {
               </p>
             </div>
 
-            {/* ── Background fill bar (hourglass-style progress) ── */}
-            <AnimatePresence>
-              {isHolding && (
-                <motion.div
-                  className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+            {/* ── Glass-style Explore button ── */}
+            {isLoaded && (
+              <div className="absolute inset-0 z-10 flex items-end justify-center pb-8 pointer-events-none">
+                <motion.button
+                  onClick={handleExplore}
+                  disabled={isTransitioning}
+                  className="pointer-events-auto px-6 py-2.5 rounded-full text-[11px] uppercase tracking-[0.2em] font-medium
+                    bg-white/20 backdrop-blur-md border border-white/30
+                    text-black/80 shadow-[0_2px_16px_rgba(0,0,0,0.08)]
+                    hover:bg-white/35 hover:border-white/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.12)]
+                    active:scale-95
+                    transition-all duration-200 ease-out
+                    disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.8, ease: "easeOut" }}
                 >
-                  {/* Fill bar that rises from the bottom */}
-                  <div
-                    className="absolute inset-x-0 bottom-0 bg-black/[0.06] transition-none"
-                    style={{ height: `${holdProgress * 100}%` }}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Idle hint: subtle pulsing label ── */}
-            {!isHolding && isLoaded && (
-              <div className="absolute inset-0 z-10 flex items-end justify-center pb-6 pointer-events-none">
-                <motion.span
-                  className="text-[10px] uppercase tracking-widest text-black/40 font-medium"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: [0, 0.6, 0] }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                    ease: "easeInOut",
-                    delay: 2,
-                  }}
-                >
-                  Hold to read
-                </motion.span>
+                  Explore
+                </motion.button>
               </div>
             )}
           </div>
@@ -330,7 +265,7 @@ export default function LookbookLayout() {
                   transitionDelay: isLoaded ? `${getRandomImageDelay(imageIndex)}ms` : '0ms',
                 }}
               >
-                {imageErrors[imageSrc] ? (
+                {!imageSrc || imageErrors[imageSrc] ? (
                   <div className="flex h-full w-full items-center justify-center">
                     <p className="text-[6px] md:text-[8px] uppercase tracking-wider text-black/30">
                       Image
@@ -350,6 +285,18 @@ export default function LookbookLayout() {
           })}
         </div>
       </div>
+
+      {/* ── Full-screen white flash overlay (covers entire viewport) ── */}
+      <AnimatePresence>
+        {isTransitioning && (
+          <motion.div
+            className="fixed inset-0 z-[200] pointer-events-none bg-white"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, ease: "easeIn" }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

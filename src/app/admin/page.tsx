@@ -6,8 +6,9 @@ import type { PostMeta } from "@/lib/posts";
 import type { EventMeta } from "@/lib/events";
 import type { AlbumMeta } from "@/lib/albums";
 import type { Mix, StaffPick, MusicData } from "@/lib/music";
+import type { LookbookImage, LookbookData } from "@/lib/lookbook";
 
-type Tab = "articles" | "events" | "albums" | "music";
+type Tab = "articles" | "events" | "albums" | "music" | "lookbook";
 
 export default function AdminPage() {
   return (
@@ -34,6 +35,9 @@ function AdminContent() {
   const [mixes, setMixes] = useState<Mix[]>([]);
   const [staffPicks, setStaffPicks] = useState<StaffPick[]>([]);
   const [musicSaving, setMusicSaving] = useState(false);
+  const [lookbookImages, setLookbookImages] = useState<LookbookImage[]>([]);
+  const [lookbookSaving, setLookbookSaving] = useState(false);
+  const [lookbookUploading, setLookbookUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{title: string; slug: string; date: string; coverImage?: string; imageCount?: number; youtubeVideoId?: string}[]>([]);
@@ -49,7 +53,7 @@ function AdminContent() {
 
   const checkAuth = useCallback(async () => {
     try {
-      const res = await fetch("/api/posts", { method: "GET" });
+      const res = await fetch("/api/posts?fresh", { method: "GET" });
       if (res.ok) {
         const testRes = await fetch("/api/posts", {
           method: "POST",
@@ -67,7 +71,7 @@ function AdminContent() {
 
   const fetchPosts = useCallback(async () => {
     try {
-      const res = await fetch("/api/posts");
+      const res = await fetch("/api/posts?fresh");
       if (res.ok) setPosts(await res.json());
     } catch {
       console.error("Failed to fetch posts");
@@ -76,7 +80,7 @@ function AdminContent() {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await fetch("/api/events");
+      const res = await fetch("/api/events?fresh");
       if (res.ok) setEvents(await res.json());
     } catch {
       console.error("Failed to fetch events");
@@ -85,7 +89,7 @@ function AdminContent() {
 
   const fetchAlbums = useCallback(async () => {
     try {
-      const res = await fetch("/api/albums");
+      const res = await fetch("/api/albums?fresh");
       if (res.ok) setAlbums(await res.json());
     } catch {
       console.error("Failed to fetch albums");
@@ -94,7 +98,7 @@ function AdminContent() {
 
   const fetchMusic = useCallback(async () => {
     try {
-      const res = await fetch("/api/music");
+      const res = await fetch("/api/music?fresh");
       if (res.ok) {
         const data: MusicData = await res.json();
         setMixes(data.mixes || []);
@@ -105,6 +109,18 @@ function AdminContent() {
     }
   }, []);
 
+  const fetchLookbook = useCallback(async () => {
+    try {
+      const res = await fetch("/api/lookbook?fresh");
+      if (res.ok) {
+        const data: LookbookData = await res.json();
+        setLookbookImages(data.images || []);
+      }
+    } catch {
+      console.error("Failed to fetch lookbook");
+    }
+  }, []);
+
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
@@ -112,11 +128,11 @@ function AdminContent() {
   useEffect(() => {
     if (authenticated) {
       setLoading(true);
-      Promise.all([fetchPosts(), fetchEvents(), fetchAlbums(), fetchMusic()]).finally(() =>
+      Promise.all([fetchPosts(), fetchEvents(), fetchAlbums(), fetchMusic(), fetchLookbook()]).finally(() =>
         setLoading(false)
       );
     }
-  }, [authenticated, fetchPosts, fetchEvents, fetchAlbums, fetchMusic]);
+  }, [authenticated, fetchPosts, fetchEvents, fetchAlbums, fetchMusic, fetchLookbook]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -146,6 +162,7 @@ function AdminContent() {
     setAlbums([]);
     setMixes([]);
     setStaffPicks([]);
+    setLookbookImages([]);
   };
 
   // ── Music helpers ──
@@ -223,6 +240,60 @@ function AdminContent() {
       alert("Failed to save music data");
     } finally {
       setMusicSaving(false);
+    }
+  };
+
+  // ── Lookbook helpers ──
+
+  const addLookbookImage = async (file: File) => {
+    setLookbookUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) throw new Error("Upload failed");
+      const { url } = await res.json();
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      setLookbookImages((prev) => [
+        ...prev,
+        { id, url, order: prev.length },
+      ]);
+    } catch {
+      alert("Failed to upload image");
+    } finally {
+      setLookbookUploading(false);
+    }
+  };
+
+  const removeLookbookImage = (id: string) => {
+    setLookbookImages((prev) =>
+      prev.filter((img) => img.id !== id).map((img, i) => ({ ...img, order: i }))
+    );
+  };
+
+  const moveLookbookImage = (index: number, direction: -1 | 1) => {
+    setLookbookImages((prev) => {
+      const next = [...prev];
+      const target = index + direction;
+      if (target < 0 || target >= next.length) return prev;
+      [next[index], next[target]] = [next[target], next[index]];
+      return next.map((img, i) => ({ ...img, order: i }));
+    });
+  };
+
+  const saveLookbook = async () => {
+    setLookbookSaving(true);
+    try {
+      const res = await fetch("/api/lookbook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ images: lookbookImages }),
+      });
+      if (!res.ok) throw new Error("Save failed");
+    } catch {
+      alert("Failed to save lookbook data");
+    } finally {
+      setLookbookSaving(false);
     }
   };
 
@@ -384,6 +455,7 @@ function AdminContent() {
     { key: "events", label: "Events" },
     { key: "albums", label: "Albums" },
     { key: "music", label: "Music" },
+    { key: "lookbook", label: "Lookbook" },
   ];
 
   return (
@@ -957,6 +1029,109 @@ function AdminContent() {
                     className="px-6 py-2.5 bg-black text-white rounded-lg text-sm hover:bg-black/80 disabled:opacity-50 transition-colors"
                   >
                     {musicSaving ? "Saving..." : "Save Music"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Lookbook Tab */}
+            {activeTab === "lookbook" && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-normal tracking-tight">
+                    Lookbook Images
+                  </h2>
+                  <label
+                    className={`px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors cursor-pointer ${
+                      lookbookUploading ? "opacity-50 pointer-events-none" : ""
+                    }`}
+                  >
+                    {lookbookUploading ? "Uploading..." : "Add Image"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) addLookbookImage(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {lookbookImages.length === 0 ? (
+                  <div className="text-center py-12 border border-dashed border-black/15 rounded-lg">
+                    <p className="text-black/40 text-sm mb-3">
+                      No lookbook images yet
+                    </p>
+                    <label className="inline-block px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors cursor-pointer">
+                      Upload Your First Image
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) addLookbookImage(file);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {lookbookImages.map((img, index) => (
+                      <div
+                        key={img.id}
+                        className="p-3 border border-black/10 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button
+                              onClick={() => moveLookbookImage(index, -1)}
+                              disabled={index === 0}
+                              className="p-0.5 text-black/30 hover:text-black disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-xs"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              onClick={() => moveLookbookImage(index, 1)}
+                              disabled={index === lookbookImages.length - 1}
+                              className="p-0.5 text-black/30 hover:text-black disabled:opacity-20 disabled:cursor-not-allowed transition-colors text-xs"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={img.url}
+                            alt={`Lookbook ${index + 1}`}
+                            className="w-16 h-16 object-cover rounded shrink-0 bg-gray-100"
+                          />
+                          <span className="flex-1 text-sm text-black/60 truncate min-w-0">
+                            {img.url}
+                          </span>
+                          <button
+                            onClick={() => removeLookbookImage(img.id)}
+                            className="shrink-0 px-2 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Save Button */}
+                <div className="flex justify-end pt-4 border-t border-black/10">
+                  <button
+                    onClick={saveLookbook}
+                    disabled={lookbookSaving}
+                    className="px-6 py-2.5 bg-black text-white rounded-lg text-sm hover:bg-black/80 disabled:opacity-50 transition-colors"
+                  >
+                    {lookbookSaving ? "Saving..." : "Save Lookbook"}
                   </button>
                 </div>
               </div>

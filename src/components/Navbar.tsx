@@ -55,13 +55,6 @@ export default function Navbar() {
     liveTimeoutRef.current = setTimeout(() => setIsLiveHovered(false), 200);
   }, []);
 
-  const handleEventsClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault();
-    const eventsSection = document.getElementById("events");
-    if (eventsSection) {
-      eventsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -126,17 +119,16 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="w-full border-b border-black/10 backdrop-blur-md bg-white/70" style={{ willChange: 'auto' }}>
+      <nav className="w-full border-b border-black/10 bg-white" style={{ willChange: 'auto' }}>
         <div className="relative flex items-center justify-between w-full px-4 py-4 md:px-6 md:py-8 lg:px-8">
           {/* Left side - 4 items */}
           <div className="flex items-center justify-start gap-3 md:gap-6 lg:gap-8 flex-1">
-            <a
-              href="#events"
-              onClick={handleEventsClick}
-              className="text-[10px] md:text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50 cursor-pointer"
+            <Link
+              href="/events"
+              className="text-[10px] md:text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50"
             >
               Events
-            </a>
+            </Link>
             <Link
               href="/music"
               className="text-[10px] md:text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50"
