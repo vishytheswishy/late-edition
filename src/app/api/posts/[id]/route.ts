@@ -2,13 +2,9 @@ import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
 import {
   getPost,
-  getPostIndex,
-  savePostIndex,
   savePost,
   deletePost,
-  type PostMeta,
 } from "@/lib/posts";
-// getPostIndex, savePostIndex used by PUT; deletePost used by DELETE
 
 export async function GET(
   _request: Request,
@@ -58,20 +54,6 @@ export async function PUT(
     };
 
     await savePost(updated);
-
-    const meta: PostMeta = {
-      id: updated.id,
-      title: updated.title,
-      slug: updated.slug,
-      excerpt: updated.excerpt,
-      coverImage: updated.coverImage,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-    };
-
-    const index = await getPostIndex();
-    const newIndex = index.map((p) => (p.id === id ? meta : p));
-    await savePostIndex(newIndex);
 
     return NextResponse.json(updated);
   } catch {

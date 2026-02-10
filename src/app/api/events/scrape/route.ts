@@ -3,10 +3,8 @@ import { verifyAdmin } from "@/lib/auth";
 import { generateId, slugify } from "@/lib/posts";
 import {
   getEventIndex,
-  saveEventIndex,
   saveEvent,
   type Event,
-  type EventMeta,
 } from "@/lib/events";
 import { put } from "@vercel/blob";
 import * as cheerio from "cheerio";
@@ -206,7 +204,6 @@ export async function POST() {
 
     const saved: Event[] = [];
     const skipped: string[] = [];
-    const newMetas: EventMeta[] = [];
 
     for (const scraped of scrapedEvents) {
       if (existingSlugs.has(scraped.slug)) {
@@ -261,24 +258,6 @@ export async function POST() {
 
       await saveEvent(event);
       saved.push(event);
-
-      const meta: EventMeta = {
-        id: event.id,
-        title: event.title,
-        slug: event.slug,
-        excerpt: event.excerpt,
-        coverImage: event.coverImage,
-        createdAt: event.createdAt,
-        updatedAt: event.updatedAt,
-      };
-
-      newMetas.push(meta);
-    }
-
-    // Save updated index
-    if (newMetas.length > 0) {
-      const updatedIndex = [...existingIndex, ...newMetas];
-      await saveEventIndex(updatedIndex);
     }
 
     return NextResponse.json({

@@ -3,10 +3,8 @@ import { verifyAdmin } from "@/lib/auth";
 import { generateId, slugify } from "@/lib/posts";
 import {
   getAlbumIndex,
-  saveAlbumIndex,
   saveAlbum,
   type Album,
-  type AlbumMeta,
 } from "@/lib/albums";
 
 export async function GET(request: Request) {
@@ -65,21 +63,6 @@ export async function POST(request: Request) {
     };
 
     await saveAlbum(album);
-
-    const meta: AlbumMeta = {
-      id: album.id,
-      title: album.title,
-      slug: album.slug,
-      description: album.description,
-      coverImage: album.coverImage,
-      photoCount: album.photoCount,
-      createdAt: album.createdAt,
-      updatedAt: album.updatedAt,
-    };
-
-    const index = await getAlbumIndex();
-    index.push(meta);
-    await saveAlbumIndex(index);
 
     return NextResponse.json(album, { status: 201 });
   } catch {

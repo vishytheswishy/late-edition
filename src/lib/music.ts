@@ -1,4 +1,6 @@
-import { put, list } from "@vercel/blob";
+import { db } from "@/lib/db";
+import { mixes, staffPicks } from "@/lib/schema";
+import { asc } from "drizzle-orm";
 
 export interface Mix {
   id: string;
@@ -21,7 +23,6 @@ export interface MusicData {
   staffPicks: StaffPick[];
 }
 
-const INDEX_PATH = "music/index.json";
 const LATE_EDITION_MUSIC_URL = "https://www.lateedition.org/music";
 
 /**
@@ -46,7 +47,7 @@ async function scrapeSeedData(): Promise<MusicData> {
   const uniqueTrackUrls = [...new Set(scTrackLinks)];
 
   // Enrich each track via SoundCloud oEmbed
-  const mixes: Mix[] = await Promise.all(
+  const mixesList: Mix[] = await Promise.all(
     uniqueTrackUrls.map(async (url, i) => {
       try {
         const oembed = `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`;
@@ -86,7 +87,7 @@ async function scrapeSeedData(): Promise<MusicData> {
     ...textContent.matchAll(/([A-Z][a-z]+)\s*\|?\s*(Staff Picks Playlist \d+)/g),
   ];
 
-  const staffPicks: StaffPick[] = spLinks.map((url, i) => ({
+  const staffPicksList: StaffPick[] = spLinks.map((url, i) => ({
     id: generateId(),
     name: staffMatches[i]?.[1]?.trim() || "",
     label: staffMatches[i]?.[2]?.trim() || "",
@@ -94,16 +95,23 @@ async function scrapeSeedData(): Promise<MusicData> {
     order: i,
   }));
 
-  return { mixes, staffPicks };
+  return { mixes: mixesList, staffPicks: staffPicksList };
 }
 
 export async function getMusicData(): Promise<MusicData> {
   try {
-    const { blobs } = await list({ prefix: "music/index" });
-    const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
+    const mixRows = await db
+      .select()
+      .from(mixes)
+      .orderBy(asc(mixes.order));
 
-    if (!indexBlob) {
-      // Auto-seed by scraping lateedition.org on first access
+    const staffPickRows = await db
+      .select()
+      .from(staffPicks)
+      .orderBy(asc(staffPicks.order));
+
+    // If no data exists, auto-seed by scraping
+    if (mixRows.length === 0 && staffPickRows.length === 0) {
       try {
         const seed = await scrapeSeedData();
         await saveMusicData(seed);
@@ -113,12 +121,10 @@ export async function getMusicData(): Promise<MusicData> {
       }
     }
 
-    const url = new URL(indexBlob.url);
-    url.searchParams.set("download", "1");
-    url.searchParams.set("_t", Date.now().toString());
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (!response.ok) return { mixes: [], staffPicks: [] };
-    return (await response.json()) as MusicData;
+    return {
+      mixes: mixRows,
+      staffPicks: staffPickRows,
+    };
   } catch {
     return { mixes: [], staffPicks: [] };
   }
@@ -129,11 +135,33 @@ export async function saveMusicData(data: MusicData): Promise<void> {
   data.mixes.sort((a, b) => a.order - b.order);
   data.staffPicks.sort((a, b) => a.order - b.order);
 
-  await put(INDEX_PATH, JSON.stringify(data), {
-    access: "public",
-    addRandomSuffix: false,
-    contentType: "application/json",
-  });
+  // Truncate and reinsert (matches current overwrite-all behavior)
+  await db.delete(mixes);
+  await db.delete(staffPicks);
+
+  if (data.mixes.length > 0) {
+    await db.insert(mixes).values(
+      data.mixes.map((m) => ({
+        id: m.id,
+        title: m.title,
+        artist: m.artist,
+        url: m.url,
+        order: m.order,
+      }))
+    );
+  }
+
+  if (data.staffPicks.length > 0) {
+    await db.insert(staffPicks).values(
+      data.staffPicks.map((s) => ({
+        id: s.id,
+        name: s.name,
+        label: s.label,
+        spotifyUrl: s.spotifyUrl,
+        order: s.order,
+      }))
+    );
+  }
 }
 
 export function generateId(): string {

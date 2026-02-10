@@ -1,4 +1,6 @@
-import { put, list, del } from "@vercel/blob";
+import { db } from "@/lib/db";
+import { events } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
 export interface EventMeta {
   id: string;
@@ -14,90 +16,89 @@ export interface Event extends EventMeta {
   content: string;
 }
 
-const INDEX_PATH = "events/index.json";
-
-function eventPath(id: string) {
-  return `events/${id}.json`;
-}
-
-/** Fetch a blob URL, bypassing CDN edge cache with download param */
-async function fetchBlob(blobUrl: string): Promise<Response | null> {
-  try {
-    const url = new URL(blobUrl);
-    url.searchParams.set("download", "1");
-    url.searchParams.set("_t", Date.now().toString());
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (response.ok) return response;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export async function getEventIndex(): Promise<EventMeta[]> {
   try {
-    const { blobs } = await list({ prefix: "events/index" });
-    const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
-    if (!indexBlob) return [];
+    const rows = await db
+      .select({
+        id: events.id,
+        title: events.title,
+        slug: events.slug,
+        excerpt: events.excerpt,
+        coverImage: events.coverImage,
+        createdAt: events.createdAt,
+        updatedAt: events.updatedAt,
+      })
+      .from(events);
 
-    const response = await fetchBlob(indexBlob.url);
-    if (!response) return [];
-    return (await response.json()) as EventMeta[];
+    return rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
   } catch {
     return [];
   }
 }
 
-export async function saveEventIndex(events: EventMeta[]): Promise<void> {
-  await put(INDEX_PATH, JSON.stringify(events), {
-    access: "public",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-  });
-}
+/** No-op: index is now implicit in the events table */
+export async function saveEventIndex(_events: EventMeta[]): Promise<void> {}
 
 export async function getEvent(id: string): Promise<Event | null> {
   try {
-    const { blobs } = await list({ prefix: `events/${id}` });
-    const eventBlob = blobs.find((b) => b.pathname === eventPath(id));
-    if (!eventBlob) return null;
-
-    const response = await fetchBlob(eventBlob.url);
-    if (!response) return null;
-    return (await response.json()) as Event;
+    const rows = await db.select().from(events).where(eq(events.id, id));
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    };
   } catch {
     return null;
   }
 }
 
 export async function getEventBySlug(slug: string): Promise<Event | null> {
-  const index = await getEventIndex();
-  const meta = index.find((e) => e.slug === slug);
-  if (!meta) return null;
-  return getEvent(meta.id);
+  try {
+    const rows = await db.select().from(events).where(eq(events.slug, slug));
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function saveEvent(event: Event): Promise<void> {
-  await put(eventPath(event.id), JSON.stringify(event), {
-    access: "public",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-  });
+  await db
+    .insert(events)
+    .values({
+      id: event.id,
+      title: event.title,
+      slug: event.slug,
+      excerpt: event.excerpt,
+      coverImage: event.coverImage,
+      content: event.content,
+      createdAt: new Date(event.createdAt),
+      updatedAt: new Date(event.updatedAt),
+    })
+    .onConflictDoUpdate({
+      target: events.id,
+      set: {
+        title: event.title,
+        slug: event.slug,
+        excerpt: event.excerpt,
+        coverImage: event.coverImage,
+        content: event.content,
+        updatedAt: new Date(event.updatedAt),
+      },
+    });
 }
 
 export async function deleteEvent(id: string): Promise<void> {
-  // Remove from index first, then delete the blob
-  const index = await getEventIndex();
-  const updated = index.filter((e) => e.id !== id);
-  if (updated.length !== index.length) {
-    await saveEventIndex(updated);
-  }
-
-  // Delete the event blob
-  const { blobs } = await list({ prefix: `events/${id}` });
-  for (const blob of blobs) {
-    await del(blob.url);
-  }
+  await db.delete(events).where(eq(events.id, id));
 }

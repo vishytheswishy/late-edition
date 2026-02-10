@@ -1,4 +1,6 @@
-import { put, list, del } from "@vercel/blob";
+import { db } from "@/lib/db";
+import { posts } from "@/lib/schema";
+import { eq } from "drizzle-orm";
 
 export interface PostMeta {
   id: string;
@@ -14,92 +16,91 @@ export interface Post extends PostMeta {
   content: string;
 }
 
-const INDEX_PATH = "posts/index.json";
-
-function postPath(id: string) {
-  return `posts/${id}.json`;
-}
-
-/** Fetch a blob URL, bypassing CDN edge cache with download param */
-async function fetchBlob(blobUrl: string): Promise<Response | null> {
-  try {
-    const url = new URL(blobUrl);
-    url.searchParams.set("download", "1");
-    url.searchParams.set("_t", Date.now().toString());
-    const response = await fetch(url.toString(), { cache: "no-store" });
-    if (response.ok) return response;
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 export async function getPostIndex(): Promise<PostMeta[]> {
   try {
-    const { blobs } = await list({ prefix: "posts/index" });
-    const indexBlob = blobs.find((b) => b.pathname === INDEX_PATH);
-    if (!indexBlob) return [];
+    const rows = await db
+      .select({
+        id: posts.id,
+        title: posts.title,
+        slug: posts.slug,
+        excerpt: posts.excerpt,
+        coverImage: posts.coverImage,
+        createdAt: posts.createdAt,
+        updatedAt: posts.updatedAt,
+      })
+      .from(posts);
 
-    const response = await fetchBlob(indexBlob.url);
-    if (!response) return [];
-    return (await response.json()) as PostMeta[];
+    return rows.map((r) => ({
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
   } catch {
     return [];
   }
 }
 
-export async function savePostIndex(posts: PostMeta[]): Promise<void> {
-  await put(INDEX_PATH, JSON.stringify(posts), {
-    access: "public",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-  });
-}
+/** No-op: index is now implicit in the posts table */
+export async function savePostIndex(_posts: PostMeta[]): Promise<void> {}
 
 export async function getPost(id: string): Promise<Post | null> {
   try {
-    const { blobs } = await list({ prefix: `posts/${id}` });
-    const postBlob = blobs.find((b) => b.pathname === postPath(id));
-    if (!postBlob) return null;
-
-    const response = await fetchBlob(postBlob.url);
-    if (!response) return null;
-    return (await response.json()) as Post;
+    const rows = await db.select().from(posts).where(eq(posts.id, id));
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    };
   } catch {
     return null;
   }
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
-  const index = await getPostIndex();
-  const meta = index.find((p) => p.slug === slug);
-  if (!meta) return null;
-  return getPost(meta.id);
+  try {
+    const rows = await db.select().from(posts).where(eq(posts.slug, slug));
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      ...r,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export async function savePost(post: Post): Promise<void> {
-  await put(postPath(post.id), JSON.stringify(post), {
-    access: "public",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: "application/json",
-  });
+  await db
+    .insert(posts)
+    .values({
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt,
+      coverImage: post.coverImage,
+      content: post.content,
+      createdAt: new Date(post.createdAt),
+      updatedAt: new Date(post.updatedAt),
+    })
+    .onConflictDoUpdate({
+      target: posts.id,
+      set: {
+        title: post.title,
+        slug: post.slug,
+        excerpt: post.excerpt,
+        coverImage: post.coverImage,
+        content: post.content,
+        updatedAt: new Date(post.updatedAt),
+      },
+    });
 }
 
 export async function deletePost(id: string): Promise<void> {
-  // Remove from index first, then delete the blob
-  const index = await getPostIndex();
-  const updated = index.filter((p) => p.id !== id);
-  if (updated.length !== index.length) {
-    await savePostIndex(updated);
-  }
-
-  // Delete the post blob
-  const { blobs } = await list({ prefix: `posts/${id}` });
-  for (const blob of blobs) {
-    await del(blob.url);
-  }
+  await db.delete(posts).where(eq(posts.id, id));
 }
 
 export function generateId(): string {

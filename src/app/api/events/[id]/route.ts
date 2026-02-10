@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
 import {
   getEvent,
-  getEventIndex,
-  saveEventIndex,
   saveEvent,
   deleteEvent,
-  type EventMeta,
 } from "@/lib/events";
 
 export async function GET(
@@ -57,20 +54,6 @@ export async function PUT(
     };
 
     await saveEvent(updated);
-
-    const meta: EventMeta = {
-      id: updated.id,
-      title: updated.title,
-      slug: updated.slug,
-      excerpt: updated.excerpt,
-      coverImage: updated.coverImage,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-    };
-
-    const index = await getEventIndex();
-    const newIndex = index.map((e) => (e.id === id ? meta : e));
-    await saveEventIndex(newIndex);
 
     return NextResponse.json(updated);
   } catch {

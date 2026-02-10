@@ -2,11 +2,9 @@ import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
 import {
   getPostIndex,
-  savePostIndex,
   savePost,
   generateId,
   type Post,
-  type PostMeta,
 } from "@/lib/posts";
 
 export async function GET(request: Request) {
@@ -62,20 +60,6 @@ export async function POST(request: Request) {
     };
 
     await savePost(post);
-
-    const meta: PostMeta = {
-      id: post.id,
-      title: post.title,
-      slug: post.slug,
-      excerpt: post.excerpt,
-      coverImage: post.coverImage,
-      createdAt: post.createdAt,
-      updatedAt: post.updatedAt,
-    };
-
-    const index = await getPostIndex();
-    index.push(meta);
-    await savePostIndex(index);
 
     return NextResponse.json(post, { status: 201 });
   } catch {

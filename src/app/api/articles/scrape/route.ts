@@ -2,11 +2,9 @@ import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
 import {
   getPostIndex,
-  savePostIndex,
   savePost,
   generateId,
   type Post,
-  type PostMeta,
 } from "@/lib/posts";
 import { put } from "@vercel/blob";
 import * as cheerio from "cheerio";
@@ -419,7 +417,6 @@ export async function POST() {
 
     const saved: Post[] = [];
     const skipped: string[] = [];
-    const newMetas: PostMeta[] = [];
 
     for (const article of scrapedArticles) {
       if (existingSlugs.has(article.slug)) {
@@ -480,24 +477,6 @@ export async function POST() {
 
       await savePost(post);
       saved.push(post);
-
-      const meta: PostMeta = {
-        id: post.id,
-        title: post.title,
-        slug: post.slug,
-        excerpt: post.excerpt,
-        coverImage: post.coverImage,
-        createdAt: post.createdAt,
-        updatedAt: post.updatedAt,
-      };
-
-      newMetas.push(meta);
-    }
-
-    // Save updated index
-    if (newMetas.length > 0) {
-      const updatedIndex = [...existingIndex, ...newMetas];
-      await savePostIndex(updatedIndex);
     }
 
     return NextResponse.json({

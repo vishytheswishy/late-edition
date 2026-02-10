@@ -3,10 +3,8 @@ import { verifyAdmin } from "@/lib/auth";
 import { generateId, slugify } from "@/lib/posts";
 import {
   getEventIndex,
-  saveEventIndex,
   saveEvent,
   type Event,
-  type EventMeta,
 } from "@/lib/events";
 
 export async function GET(request: Request) {
@@ -62,20 +60,6 @@ export async function POST(request: Request) {
     };
 
     await saveEvent(event);
-
-    const meta: EventMeta = {
-      id: event.id,
-      title: event.title,
-      slug: event.slug,
-      excerpt: event.excerpt,
-      coverImage: event.coverImage,
-      createdAt: event.createdAt,
-      updatedAt: event.updatedAt,
-    };
-
-    const index = await getEventIndex();
-    index.push(meta);
-    await saveEventIndex(index);
 
     return NextResponse.json(event, { status: 201 });
   } catch {

@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
 import {
   getAlbum,
-  getAlbumIndex,
-  saveAlbumIndex,
   saveAlbum,
   deleteAlbum,
-  type AlbumMeta,
 } from "@/lib/albums";
 
 export async function GET(
@@ -61,21 +58,6 @@ export async function PUT(
     };
 
     await saveAlbum(updated);
-
-    const meta: AlbumMeta = {
-      id: updated.id,
-      title: updated.title,
-      slug: updated.slug,
-      description: updated.description,
-      coverImage: updated.coverImage,
-      photoCount: updated.photoCount,
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
-    };
-
-    const index = await getAlbumIndex();
-    const newIndex = index.map((a) => (a.id === id ? meta : a));
-    await saveAlbumIndex(newIndex);
 
     return NextResponse.json(updated);
   } catch {
