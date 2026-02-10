@@ -47,6 +47,7 @@ export default function LookbookLayout() {
   const [shuffledImages, setShuffledImages] = useState<string[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [hasTouched, setHasTouched] = useState(false);
   const navigated = useRef(false);
 
   const handleExplore = () => {
@@ -190,7 +191,10 @@ export default function LookbookLayout() {
             opacity: isLoaded ? 1 : 0,
           }}
         >
-          <div className="relative h-full w-full overflow-hidden bg-gray-50 select-none">
+          <div
+            className="relative h-full w-full overflow-hidden bg-gray-50 select-none"
+            onPointerDown={() => { if (!hasTouched) setHasTouched(true); }}
+          >
             <Magazine3D
               frontCover="/cover/front.jpg"
               backCover="/cover/back.jpg"
@@ -204,22 +208,22 @@ export default function LookbookLayout() {
               </p>
             </div>
 
-            {/* ── Glass-style Explore button ── */}
-            {isLoaded && (
-              <div className="absolute inset-0 z-10 flex items-end justify-center pb-8 pointer-events-none">
+            {/* ── Glass-style Explore button – appears after first touch ── */}
+            {hasTouched && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
                 <motion.button
                   onClick={handleExplore}
                   disabled={isTransitioning}
-                  className="pointer-events-auto px-6 py-2.5 rounded-full text-[11px] uppercase tracking-[0.2em] font-medium
-                    bg-white/20 backdrop-blur-md border border-white/30
-                    text-black/80 shadow-[0_2px_16px_rgba(0,0,0,0.08)]
-                    hover:bg-white/35 hover:border-white/50 hover:shadow-[0_4px_24px_rgba(0,0,0,0.12)]
+                  className="pointer-events-auto px-8 py-3 rounded-full text-[11px] uppercase tracking-[0.2em] font-medium
+                    bg-white/15 backdrop-blur-xl border border-white/40
+                    text-black/70 shadow-[0_4px_30px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.4)]
+                    hover:bg-white/30 hover:border-white/60 hover:text-black/90 hover:shadow-[0_8px_40px_rgba(0,0,0,0.12)]
                     active:scale-95
                     transition-all duration-200 ease-out
                     disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.8, ease: "easeOut" }}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5, delay: 1, ease: "easeOut" }}
                 >
                   Explore
                 </motion.button>
