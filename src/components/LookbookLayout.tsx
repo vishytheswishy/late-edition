@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
+import BombClock from "./BombClock";
 
 // Dynamically import the 3D component to avoid SSR issues
 const Magazine3D = dynamic(() => import("./Magazine3D"), {
@@ -202,10 +203,13 @@ export default function LookbookLayout() {
             />
 
             {/* Issue number overlay */}
-            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 pointer-events-none">
+            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 pointer-events-none flex flex-col items-end">
               <p className="text-xs md:text-sm uppercase tracking-wider text-black font-medium">
                 ISSUE 002
               </p>
+              <div className="mt-1.5">
+                <BombClock />
+              </div>
             </div>
 
             {/* ── Glass-style Explore button – appears after first touch ── */}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useSoundCloud } from "@/hooks/useSoundCloud";
+import { useMusic } from "@/context/MusicPlayerContext";
 import AudioBars from "@/components/AudioBars";
 
 // Dynamic import to avoid SSR issues with Three.js
@@ -19,10 +19,6 @@ const Vinyl3D = dynamic(() => import("@/components/Vinyl3D"), {
   ),
 });
 
-// ── Data ──
-
-import type { Mix, StaffPick } from "@/lib/music";
-
 // ── Helpers ──
 
 function formatTime(ms: number): string {
@@ -35,73 +31,28 @@ function formatTime(ms: number): string {
 // ── Component ──
 
 export default function MusicPage() {
-  const { state, loadTrack, toggle, seekTo, setVolume, analyserRef } = useSoundCloud();
+  const {
+    state,
+    toggle,
+    seekTo,
+    setVolume,
+    analyserRef,
+    activeMixId,
+    activeMix,
+    coverArt,
+    mixesList,
+    staffPicksList,
+    swapKey,
+    selectMix,
+    onVinylPlaced,
+  } = useMusic();
+
   const [scrubbing, setScrubbing] = useState(false);
   const scrubbingRef = useRef(false);
   const [scrubPos, setScrubPos] = useState(0);
   const progressRef = useRef<HTMLDivElement>(null);
   const mobileProgressRef = useRef<HTMLDivElement>(null);
-  const [activeMixId, setActiveMixId] = useState<string | null>(null);
   const [playerCollapsed, setPlayerCollapsed] = useState(true);
-  const [swapKey, setSwapKey] = useState(0);
-  const [coverArt, setCoverArt] = useState<string | undefined>(undefined);
-  const pendingTrackUrl = useRef<string | null>(null);
-  const [mixesList, setMixesList] = useState<Mix[]>([]);
-  const [staffPicksList, setStaffPicksList] = useState<StaffPick[]>([]);
-
-  // Fetch music data from API (auto-seeds from lateedition.org on first call)
-  useEffect(() => {
-    fetch("/api/music")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data) {
-          if (data.mixes?.length) setMixesList(data.mixes);
-          if (data.staffPicks?.length) setStaffPicksList(data.staffPicks);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleSelectMix = useCallback(
-    (mix: Mix) => {
-      if (activeMixId === mix.id) {
-        // Same track — toggle play/pause
-        toggle();
-      } else {
-        // New track — pre-fetch artwork, then start swap animation
-        setActiveMixId(mix.id);
-        pendingTrackUrl.current = mix.url;
-
-        // Fetch cover art via SoundCloud oEmbed before the vinyl enters
-        fetch(
-          `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(mix.url)}`
-        )
-          .then((r) => r.json())
-          .then((data) => {
-            const thumb = data.thumbnail_url as string | undefined;
-            if (thumb) {
-              // oEmbed returns a small thumbnail — swap to 500x500
-              setCoverArt(thumb.replace("-large", "-t500x500"));
-            } else {
-              setCoverArt(undefined);
-            }
-          })
-          .catch(() => setCoverArt(undefined))
-          .finally(() => {
-            // Start the swap animation after artwork is ready
-            setSwapKey((k) => k + 1);
-          });
-      }
-    },
-    [activeMixId, toggle]
-  );
-
-  const handleVinylPlaced = useCallback(() => {
-    if (pendingTrackUrl.current) {
-      loadTrack(pendingTrackUrl.current);
-      pendingTrackUrl.current = null;
-    }
-  }, [loadTrack]);
 
   const volumeBeforeScrub = useRef(state.volume);
 
@@ -121,15 +72,6 @@ export default function MusicPage() {
   const handleVinylScrubEnd = useCallback(() => {
     setVolume(volumeBeforeScrub.current);
   }, [setVolume]);
-
-  // Keep coverArt in sync once the SoundCloud widget provides artwork
-  useEffect(() => {
-    if (state.artworkUrl) {
-      setCoverArt(state.artworkUrl);
-    }
-  }, [state.artworkUrl]);
-
-  const activeMix = mixesList.find((m) => m.id === activeMixId);
 
   // Scrub helpers — use a ref so pointer-move/up always see latest value
   const getScrubPosition = useCallback((clientX: number) => {
@@ -205,7 +147,7 @@ export default function MusicPage() {
                   onToggle={activeMixId ? toggle : undefined}
                   artworkUrl={coverArt}
                   swapKey={swapKey}
-                  onPlaced={handleVinylPlaced}
+                  onPlaced={onVinylPlaced}
                   onScrub={activeMixId ? handleVinylScrub : undefined}
                   onScrubStart={activeMixId ? handleVinylScrubStart : undefined}
                   onScrubEnd={activeMixId ? handleVinylScrubEnd : undefined}
@@ -237,6 +179,17 @@ export default function MusicPage() {
                       </div>
 
                       <div className="flex items-center gap-2 px-3 py-2">
+                        {/* Thumbnail */}
+                        {coverArt && (
+                          <div className="flex-shrink-0 w-8 h-8 rounded overflow-hidden bg-black/5">
+                            <img
+                              src={coverArt}
+                              alt={activeMix.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+
                         {/* Play/pause button */}
                         <button
                           className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-sm active:scale-95 transition-transform"
@@ -462,10 +415,23 @@ export default function MusicPage() {
                       <p className="text-[10px] uppercase tracking-widest text-black/40 mb-2">
                         Now Playing
                       </p>
-                      <h2 className="text-base font-medium tracking-tight text-black leading-snug mb-1 truncate">
-                        {activeMix.title}
-                      </h2>
-                      <p className="text-xs text-black/50 mb-4">{activeMix.artist}</p>
+                      <div className="flex items-center gap-3 mb-4">
+                        {coverArt && (
+                          <div className="flex-shrink-0 w-11 h-11 rounded-md overflow-hidden bg-black/5 shadow-sm">
+                            <img
+                              src={coverArt}
+                              alt={activeMix.title}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <h2 className="text-base font-medium tracking-tight text-black leading-snug mb-0.5 truncate">
+                            {activeMix.title}
+                          </h2>
+                          <p className="text-xs text-black/50 truncate">{activeMix.artist}</p>
+                        </div>
+                      </div>
 
                       {/* Scrubbable progress bar */}
                       <div className="space-y-1.5">
@@ -525,7 +491,7 @@ export default function MusicPage() {
                   return (
                     <button
                       key={mix.id}
-                      onClick={() => handleSelectMix(mix)}
+                      onClick={() => selectMix(mix)}
                       className={`w-full flex items-center gap-3 py-3.5 px-5 md:px-6 text-left transition-colors cursor-pointer group ${
                         isActive ? "bg-gray-50" : "hover:bg-gray-50/50"
                       }`}
