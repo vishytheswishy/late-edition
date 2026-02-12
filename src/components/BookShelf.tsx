@@ -1,17 +1,19 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Html, useCursor } from "@react-three/drei";
-import { Suspense, useEffect, useRef, useState, useMemo } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   CanvasTexture,
   Group,
   MeshStandardMaterial,
   SRGBColorSpace,
+  Vector3,
 } from "three";
 import { easing } from "maath";
 import { createCoverCanvas } from "@/lib/coverTexture";
+import { useBookTransition } from "@/context/BookTransitionContext";
 import type { AlbumMeta } from "@/lib/albums";
 
 /* ------------------------------------------------------------------ */
@@ -23,25 +25,38 @@ const BOOK_H = 1.15; // cover height (y)
 const BOOK_D = 0.05; // spine depth  (z)
 const GAP = 0.22; // space between books
 
+const EXIT_DURATION = 450; // match context duration
+
 /* ------------------------------------------------------------------ */
 /*  Single book — cover facing camera (+z)                             */
 /* ------------------------------------------------------------------ */
+
+interface ShelfBookClickInfo {
+  slug: string;
+  coverDataUrl: string;
+  screenRect: DOMRect;
+}
 
 function ShelfBook({
   album,
   position,
   baseRotationY,
   onNavigate,
+  dimmed,
 }: {
   album: AlbumMeta;
   position: [number, number, number];
   baseRotationY: number;
-  onNavigate: (slug: string) => void;
+  onNavigate: (info: ShelfBookClickInfo) => void;
+  dimmed: boolean;
 }) {
   const groupRef = useRef<Group>(null!);
   const [hovered, setHovered] = useState(false);
   const [coverTex, setCoverTex] = useState<CanvasTexture | null>(null);
-  useCursor(hovered);
+  const coverDataUrlRef = useRef<string>("");
+  useCursor(hovered && !dimmed);
+
+  const { camera, gl } = useThree();
 
   // Generate styled cover texture (matches PhotoBook cover exactly)
   useEffect(() => {
@@ -52,6 +67,8 @@ function ShelfBook({
         const tex = new CanvasTexture(canvas);
         tex.colorSpace = SRGBColorSpace;
         setCoverTex(tex);
+        // Store dataUrl for transition overlay
+        coverDataUrlRef.current = canvas.toDataURL("image/jpeg", 0.85);
       }
     );
     return () => { cancelled = true; };
@@ -79,16 +96,62 @@ function ShelfBook({
     return [spine, spine, pages, pages, cover, back];
   }, [coverTex]);
 
-  // Hover: lift up + slight tilt
+  // Hover: lift up + slight tilt; dimmed: fade out
+  const targetOpacity = useRef(1);
   useFrame((_, delta) => {
     if (!groupRef.current) return;
-    const targetY = hovered ? position[1] + 0.08 : position[1];
-    const targetRotX = hovered ? -0.06 : 0;
-    const targetRotY = hovered ? baseRotationY - 0.05 : baseRotationY;
+    const targetY = hovered && !dimmed ? position[1] + 0.08 : position[1];
+    const targetRotX = hovered && !dimmed ? -0.06 : 0;
+    const targetRotY = hovered && !dimmed ? baseRotationY - 0.05 : baseRotationY;
     easing.damp(groupRef.current.position, "y", targetY, 0.12, delta);
     easing.damp(groupRef.current.rotation, "x", targetRotX, 0.12, delta);
     easing.damp(groupRef.current.rotation, "y", targetRotY, 0.12, delta);
+
+    // Dim other books
+    const opTarget = dimmed ? 0.15 : 1;
+    targetOpacity.current += (opTarget - targetOpacity.current) * Math.min(1, delta * 6);
+    for (const mat of materials) {
+      mat.opacity = targetOpacity.current;
+      mat.transparent = targetOpacity.current < 0.99;
+    }
   });
+
+  // Project book's 3D center to screen rect
+  const getScreenRect = useCallback((): DOMRect => {
+    const worldPos = new Vector3();
+    groupRef.current.getWorldPosition(worldPos);
+
+    // Project center of book to NDC
+    const center = worldPos.clone().project(camera);
+
+    // Project top-right corner for sizing
+    const topRight = new Vector3(
+      worldPos.x + BOOK_W / 2,
+      worldPos.y + BOOK_H / 2,
+      worldPos.z
+    ).project(camera);
+
+    // Project bottom-left corner
+    const bottomLeft = new Vector3(
+      worldPos.x - BOOK_W / 2,
+      worldPos.y - BOOK_H / 2,
+      worldPos.z
+    ).project(camera);
+
+    const canvas = gl.domElement;
+    const rect = canvas.getBoundingClientRect();
+
+    // NDC → screen pixels
+    const toScreenX = (ndc: number) => rect.left + ((ndc + 1) / 2) * rect.width;
+    const toScreenY = (ndc: number) => rect.top + ((1 - ndc) / 2) * rect.height;
+
+    const x1 = toScreenX(bottomLeft.x);
+    const y1 = toScreenY(topRight.y);
+    const x2 = toScreenX(topRight.x);
+    const y2 = toScreenY(bottomLeft.y);
+
+    return new DOMRect(x1, y1, x2 - x1, y2 - y1);
+  }, [camera, gl.domElement]);
 
   return (
     <group
@@ -97,7 +160,7 @@ function ShelfBook({
       rotation={[0, baseRotationY, 0]}
       onPointerEnter={(e) => {
         e.stopPropagation();
-        setHovered(true);
+        if (!dimmed) setHovered(true);
       }}
       onPointerLeave={(e) => {
         e.stopPropagation();
@@ -105,7 +168,13 @@ function ShelfBook({
       }}
       onClick={(e) => {
         e.stopPropagation();
-        onNavigate(album.slug);
+        if (dimmed) return;
+        const screenRect = getScreenRect();
+        onNavigate({
+          slug: album.slug,
+          coverDataUrl: coverDataUrlRef.current,
+          screenRect,
+        });
       }}
     >
       <mesh castShadow receiveShadow material={materials}>
@@ -121,7 +190,11 @@ function ShelfBook({
       >
         <div
           className={`whitespace-nowrap text-center transition-all duration-200 ${
-            hovered ? "opacity-100 scale-105" : "opacity-70"
+            dimmed
+              ? "opacity-0"
+              : hovered
+                ? "opacity-100 scale-105"
+                : "opacity-70"
           }`}
         >
           <p className="text-[10px] uppercase tracking-widest text-black/70 font-light">
@@ -157,7 +230,15 @@ function DisplaySurface({ width }: { width: number }) {
 /*  Scene                                                              */
 /* ------------------------------------------------------------------ */
 
-function Scene({ albums, onNavigate }: { albums: AlbumMeta[]; onNavigate: (slug: string) => void }) {
+function Scene({
+  albums,
+  onNavigate,
+  clickedSlug,
+}: {
+  albums: AlbumMeta[];
+  onNavigate: (info: ShelfBookClickInfo) => void;
+  clickedSlug: string | null;
+}) {
   const count = albums.length;
   const totalWidth = count * (BOOK_W + GAP) - GAP;
   const startX = -totalWidth / 2 + BOOK_W / 2;
@@ -188,6 +269,7 @@ function Scene({ albums, onNavigate }: { albums: AlbumMeta[]; onNavigate: (slug:
             position={[x, 0, 0]}
             baseRotationY={rotY}
             onNavigate={onNavigate}
+            dimmed={clickedSlug !== null && clickedSlug !== album.slug}
           />
         );
       })}
@@ -214,14 +296,29 @@ function Scene({ albums, onNavigate }: { albums: AlbumMeta[]; onNavigate: (slug:
 
 export default function BookShelf({ albums }: { albums: AlbumMeta[] }) {
   const router = useRouter();
-  const [fading, setFading] = useState(false);
+  const { startTransition } = useBookTransition();
+  const [clickedSlug, setClickedSlug] = useState<string | null>(null);
 
-  const handleNavigate = (slug: string) => {
-    setFading(true);
-    setTimeout(() => {
-      router.push(`/photos/${slug}`);
-    }, 350);
-  };
+  const handleNavigate = useCallback(
+    (info: ShelfBookClickInfo) => {
+      if (clickedSlug) return; // prevent double-click
+
+      setClickedSlug(info.slug);
+
+      // Start the cover overlay transition
+      startTransition({
+        coverDataUrl: info.coverDataUrl,
+        originRect: info.screenRect,
+        slug: info.slug,
+      });
+
+      // Navigate after overlay has expanded to fullscreen
+      setTimeout(() => {
+        router.push(`/photos/${info.slug}`);
+      }, EXIT_DURATION + 50);
+    },
+    [clickedSlug, router, startTransition]
+  );
 
   return (
     <div className="relative w-full h-[70vh] md:h-[80vh]">
@@ -234,16 +331,13 @@ export default function BookShelf({ albums }: { albums: AlbumMeta[] }) {
         style={{ background: "#fafafa" }}
       >
         <Suspense fallback={null}>
-          <Scene albums={albums} onNavigate={handleNavigate} />
+          <Scene
+            albums={albums}
+            onNavigate={handleNavigate}
+            clickedSlug={clickedSlug}
+          />
         </Suspense>
       </Canvas>
-
-      {/* Fade-to-white overlay on exit */}
-      <div
-        className={`absolute inset-0 bg-white pointer-events-none transition-opacity duration-300 ${
-          fading ? "opacity-100" : "opacity-0"
-        }`}
-      />
     </div>
   );
 }

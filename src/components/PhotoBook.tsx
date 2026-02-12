@@ -1,6 +1,6 @@
 "use client";
 
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import {
   Suspense,
@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useBookTransition } from "@/context/BookTransitionContext";
 import {
   Bone,
   BoxGeometry,
@@ -432,6 +433,7 @@ function Page({
   opened,
   bookClosed,
   totalPages,
+  onPhotoClick,
   ...props
 }: {
   number: number;
@@ -440,6 +442,7 @@ function Page({
   opened: boolean;
   bookClosed: boolean;
   totalPages: number;
+  onPhotoClick?: (photo: AlbumPhoto) => void;
   position?: [number, number, number];
 }) {
   const group = useRef<Group>(null!);
@@ -561,12 +564,54 @@ function Page({
     }
   });
 
+  const handlePageClick = useCallback(
+    (e: { stopPropagation: () => void; uv?: { x: number; y: number }; face?: { materialIndex: number } }) => {
+      e.stopPropagation();
+      if (!onPhotoClick || !e.uv || !e.face) return;
+
+      const { x: u, y: v } = e.uv;
+      const materialIndex = e.face.materialIndex;
+
+      // Material indices: 4 = front (top face in BoxGeometry), 5 = back (bottom face)
+      let photos: AlbumPhoto[];
+      let cells: GridCell[];
+      if (materialIndex === 4) {
+        photos = pageData.frontPhotos;
+        cells = pageData.frontCells;
+      } else if (materialIndex === 5) {
+        photos = pageData.backPhotos;
+        cells = pageData.backCells;
+      } else {
+        return;
+      }
+
+      // UV to canvas coordinates
+      const canvasX = u * CANVAS_W;
+      const canvasY = (1 - v) * CANVAS_H;
+
+      for (let i = 0; i < cells.length && i < photos.length; i++) {
+        const c = cells[i];
+        if (
+          canvasX >= c.x &&
+          canvasX <= c.x + c.w &&
+          canvasY >= c.y &&
+          canvasY <= c.y + c.h
+        ) {
+          onPhotoClick(photos[i]);
+          return;
+        }
+      }
+    },
+    [onPhotoClick, pageData]
+  );
+
   return (
     <group {...props} ref={group}>
       <primitive
         object={manualSkinnedMesh}
         ref={skinnedMeshRef}
         position-z={-number * PAGE_DEPTH + page * PAGE_DEPTH}
+        onClick={handlePageClick}
       />
     </group>
   );
@@ -579,9 +624,11 @@ function Page({
 function Book({
   pageDataList,
   page,
+  onPhotoClick,
 }: {
   pageDataList: PageData[];
   page: number;
+  onPhotoClick?: (photo: AlbumPhoto) => void;
 }) {
   const [delayedPage, setDelayedPage] = useState(page);
 
@@ -614,6 +661,7 @@ function Book({
             delayedPage === 0 || delayedPage === pageDataList.length
           }
           totalPages={pageDataList.length}
+          onPhotoClick={onPhotoClick}
         />
       ))}
     </group>
@@ -624,54 +672,44 @@ function Book({
 /*  Scene with desk                                                    */
 /* ------------------------------------------------------------------ */
 
-// Camera positions
-const CAMERA_FRONT = { x: 0, y: 0.3, z: 3.2 }; // front-on (like shelf)
-const CAMERA_READING = { x: 0, y: 3.5, z: 2.5 }; // top-down reading
-
-// Book poses
-const BOOK_UPRIGHT_ROT_X = 0;
+// Camera + book reading position
+const CAMERA_READING = { x: 0, y: 3.5, z: 2.5 };
 const BOOK_READING_ROT_X = -Math.PI / 3.5;
 
-type IntroPhase = "closed" | "laying" | "opening" | "done";
+type IntroPhase = "laying" | "opening" | "done";
 
 function BookScene({
   pageDataList,
   page,
   introPhase,
   onIntroPhaseChange,
+  onPhotoClick,
 }: {
   pageDataList: PageData[];
   page: number;
   introPhase: IntroPhase;
   onIntroPhaseChange: (phase: IntroPhase) => void;
+  onPhotoClick?: (photo: AlbumPhoto) => void;
 }) {
   const bookGroupRef = useRef<Group>(null!);
   const phaseStartTime = useRef(Date.now());
-  const lastPhase = useRef<IntroPhase>(introPhase);
+  const currentPhaseRef = useRef<IntroPhase>(introPhase);
 
-  // Track phase transitions
-  if (lastPhase.current !== introPhase) {
-    phaseStartTime.current = Date.now();
-    lastPhase.current = introPhase;
-  }
+  // Sync ref with prop (only update timer on actual change)
+  useEffect(() => {
+    if (currentPhaseRef.current !== introPhase) {
+      currentPhaseRef.current = introPhase;
+      phaseStartTime.current = Date.now();
+    }
+  }, [introPhase]);
 
   useFrame(({ camera }, delta) => {
     if (!bookGroupRef.current) return;
 
+    const phase = currentPhaseRef.current;
     const elapsed = (Date.now() - phaseStartTime.current) / 1000;
 
-    if (introPhase === "closed") {
-      // Book upright, camera front-on
-      easing.damp(bookGroupRef.current.rotation, "x", BOOK_UPRIGHT_ROT_X, 0.15, delta);
-      easing.damp(camera.position, "x", CAMERA_FRONT.x, 0.15, delta);
-      easing.damp(camera.position, "y", CAMERA_FRONT.y, 0.15, delta);
-      easing.damp(camera.position, "z", CAMERA_FRONT.z, 0.15, delta);
-      camera.lookAt(0, 0, 0);
-
-      if (elapsed > 0.5) {
-        onIntroPhaseChange("laying");
-      }
-    } else if (introPhase === "laying") {
+    if (phase === "laying") {
       // Animate book tilt and camera to reading position
       easing.damp(bookGroupRef.current.rotation, "x", BOOK_READING_ROT_X, 0.25, delta);
       easing.damp(camera.position, "x", CAMERA_READING.x, 0.25, delta);
@@ -682,9 +720,11 @@ function BookScene({
       // Check if rotation is close enough to target
       const rotDiff = Math.abs(bookGroupRef.current.rotation.x - BOOK_READING_ROT_X);
       if (rotDiff < 0.05 && elapsed > 0.6) {
+        currentPhaseRef.current = "opening";
+        phaseStartTime.current = Date.now();
         onIntroPhaseChange("opening");
       }
-    } else if (introPhase === "opening") {
+    } else if (phase === "opening") {
       // Hold reading position while page opens
       easing.damp(bookGroupRef.current.rotation, "x", BOOK_READING_ROT_X, 0.15, delta);
       easing.damp(camera.position, "x", CAMERA_READING.x, 0.15, delta);
@@ -693,6 +733,7 @@ function BookScene({
       camera.lookAt(0, 0, 0);
 
       if (elapsed > 1.0) {
+        currentPhaseRef.current = "done";
         onIntroPhaseChange("done");
       }
     } else {
@@ -702,15 +743,23 @@ function BookScene({
     }
   });
 
+  // Responsive scale: shrink the book on smaller viewports
+  const { viewport } = useThree();
+  const responsiveScale = useMemo(() => {
+    const base = 1.5;
+    const scale = Math.min(base, viewport.width / 3.5);
+    return Math.max(0.7, scale);
+  }, [viewport.width]);
+
   return (
     <>
       <group
         ref={bookGroupRef}
-        rotation-x={introPhase === "done" ? BOOK_READING_ROT_X : BOOK_UPRIGHT_ROT_X}
-        scale={1.5}
+        rotation-x={BOOK_READING_ROT_X}
+        scale={responsiveScale}
         position-y={-0.3}
       >
-        <Book pageDataList={pageDataList} page={page} />
+        <Book pageDataList={pageDataList} page={page} onPhotoClick={onPhotoClick} />
       </group>
 
       <Environment preset="apartment" />
@@ -756,102 +805,224 @@ function BookScene({
 /*  UI Overlay                                                         */
 /* ------------------------------------------------------------------ */
 
-function BookUI({
+/* ------------------------------------------------------------------ */
+/*  Download modal                                                     */
+/* ------------------------------------------------------------------ */
+
+function DownloadModal({
+  photo,
+  onClose,
+}: {
+  photo: AlbumPhoto;
+  onClose: () => void;
+}) {
+  const handleDownload = () => {
+    const a = document.createElement("a");
+    a.href = photo.url;
+    a.download = photo.caption || "photo";
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-3xl max-h-[85vh] mx-4 flex flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={photo.url}
+          alt={photo.caption || "Photo"}
+          className="max-h-[70vh] w-auto object-contain rounded-lg"
+        />
+        {photo.caption && (
+          <p className="text-sm text-white/70 font-light mt-3 text-center">
+            {photo.caption}
+          </p>
+        )}
+        <div className="flex gap-3 mt-4">
+          <button
+            onClick={handleDownload}
+            className="px-5 py-2.5 rounded-full bg-white text-black text-xs uppercase tracking-wider hover:bg-white/90 transition-colors"
+          >
+            Download
+          </button>
+          <button
+            onClick={onClose}
+            className="px-5 py-2.5 rounded-full border border-white/30 text-white text-xs uppercase tracking-wider hover:border-white/60 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Photo click detection from page coordinates                        */
+/* ------------------------------------------------------------------ */
+
+function detectPhotoAtClick(
+  clickX: number,
+  clickY: number,
+  imgRect: DOMRect,
+  photos: AlbumPhoto[],
+  cells: GridCell[]
+): AlbumPhoto | null {
+  if (photos.length === 0 || cells.length === 0) return null;
+
+  // Map click position to canvas coordinates
+  const nx = (clickX - imgRect.left) / imgRect.width;
+  const ny = (clickY - imgRect.top) / imgRect.height;
+  if (nx < 0 || nx > 1 || ny < 0 || ny > 1) return null;
+
+  const canvasX = nx * CANVAS_W;
+  const canvasY = ny * CANVAS_H;
+
+  for (let i = 0; i < cells.length && i < photos.length; i++) {
+    const c = cells[i];
+    if (
+      canvasX >= c.x &&
+      canvasX <= c.x + c.w &&
+      canvasY >= c.y &&
+      canvasY <= c.y + c.h
+    ) {
+      return photos[i];
+    }
+  }
+  return null;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Shared bottom control bar (used by 3D + flat views)                */
+/* ------------------------------------------------------------------ */
+
+function ControlBar({
   title,
   page,
   totalPages,
   onSetPage,
+  toggleLabel,
+  onToggle,
+  showNav,
 }: {
   title: string;
   page: number;
   totalPages: number;
   onSetPage: (p: number) => void;
+  toggleLabel: string;
+  onToggle: () => void;
+  showNav: boolean;
 }) {
   return (
-    <div className="pointer-events-none select-none fixed inset-0 z-10 flex flex-col justify-between">
-      {/* Top bar */}
-      <div className="pointer-events-auto flex items-center justify-between px-6 pt-20 md:pt-24">
+    <div className="w-full bg-white/90 backdrop-blur-sm border-t border-black/5 px-4 py-3 md:py-4 flex flex-col gap-2.5 shrink-0">
+      {/* Row 1: Back link, title, toggle */}
+      <div className="flex items-center justify-between">
         <Link
           href="/photos"
-          className="text-xs uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors"
+          className="text-xs md:text-[10px] uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors"
         >
           &larr; Back
         </Link>
-        <h1 className="text-sm font-light tracking-tight text-black/60">
+        <h1 className="text-xs font-light tracking-tight text-black/60 truncate mx-3">
           {title}
         </h1>
-        <div className="w-12" />
+        <button
+          onClick={onToggle}
+          className="text-xs md:text-[10px] uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors whitespace-nowrap"
+        >
+          {toggleLabel}
+        </button>
       </div>
 
-      {/* Left / Right arrow buttons */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-4 md:px-8">
-        {page > 0 ? (
+      {/* Row 2: prev arrow, page pills, next arrow */}
+      {showNav && (
+        <div className="flex items-center gap-2">
+          {/* Prev arrow */}
           <button
             onClick={() => onSetPage(page - 1)}
-            className="pointer-events-auto w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/80 border border-black/10 flex items-center justify-center hover:bg-white hover:border-black/25 transition-all shadow-sm"
+            disabled={page <= 0}
+            className="shrink-0 w-10 h-10 md:w-8 md:h-8 rounded-full border border-black/10 flex items-center justify-center hover:bg-black/5 active:bg-black/10 transition-all disabled:opacity-20 disabled:cursor-default"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-black/50"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50 md:w-[14px] md:h-[14px]">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
-        ) : (
-          <div />
-        )}
-        {page < totalPages ? (
+
+          {/* Page pills */}
+          <div className="flex-1 overflow-auto flex justify-center">
+            <div className="flex items-center gap-1.5 max-w-full overflow-auto">
+              {Array.from({ length: totalPages + 1 }).map((_, index) => (
+                <button
+                  key={index}
+                  className={`shrink-0 rounded-full px-3 py-1.5 md:px-2.5 md:py-1 text-xs md:text-[10px] uppercase tracking-wider border transition-all duration-300 ${
+                    index === page
+                      ? "bg-black text-white border-black"
+                      : "bg-white/80 text-black/50 border-black/10 hover:border-black/30"
+                  }`}
+                  onClick={() => onSetPage(index)}
+                >
+                  {index === 0
+                    ? "Cover"
+                    : index === totalPages
+                      ? "Back"
+                      : `${index}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Next arrow */}
           <button
             onClick={() => onSetPage(page + 1)}
-            className="pointer-events-auto w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/80 border border-black/10 flex items-center justify-center hover:bg-white hover:border-black/25 transition-all shadow-sm"
+            disabled={page >= totalPages}
+            className="shrink-0 w-10 h-10 md:w-8 md:h-8 rounded-full border border-black/10 flex items-center justify-center hover:bg-black/5 active:bg-black/10 transition-all disabled:opacity-20 disabled:cursor-default"
           >
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-black/50"
-            >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50 md:w-[14px] md:h-[14px]">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>
-        ) : (
-          <div />
-        )}
-      </div>
-
-      {/* Bottom page selector */}
-      <div className="pointer-events-auto w-full overflow-auto flex justify-center pb-6">
-        <div className="flex items-center gap-2 px-6 max-w-full overflow-auto">
-          {Array.from({ length: totalPages + 1 }).map((_, index) => (
-            <button
-              key={index}
-              className={`shrink-0 rounded-full px-3 py-1.5 text-[10px] uppercase tracking-wider border transition-all duration-300 ${
-                index === page
-                  ? "bg-black text-white border-black"
-                  : "bg-white/80 text-black/50 border-black/10 hover:border-black/30"
-              }`}
-              onClick={() => onSetPage(index)}
-            >
-              {index === 0
-                ? "Cover"
-                : index === totalPages
-                  ? "Back"
-                  : `${index}`}
-            </button>
-          ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function BookUI({
+  title,
+  page,
+  totalPages,
+  onSetPage,
+  onMinimize,
+  showControls,
+}: {
+  title: string;
+  page: number;
+  totalPages: number;
+  onSetPage: (p: number) => void;
+  onMinimize: () => void;
+  showControls: boolean;
+}) {
+  return (
+    <div className="pointer-events-none select-none absolute inset-0 flex flex-col justify-end">
+      <div className="pointer-events-auto">
+        <ControlBar
+          title={title}
+          page={page}
+          totalPages={totalPages}
+          onSetPage={onSetPage}
+          toggleLabel="Minimize"
+          onToggle={onMinimize}
+          showNav={showControls}
+        />
       </div>
     </div>
   );
@@ -861,39 +1032,44 @@ function BookUI({
 /*  Flat page-by-page viewer (mobile / minimized)                      */
 /* ------------------------------------------------------------------ */
 
+interface FaceData {
+  dataUrl: string;
+  label: string;
+  photos: AlbumPhoto[];
+  cells: GridCell[];
+}
+
 function FlatPageViewer({
   title,
   pageDataList,
-  totalPages,
   onExpand,
 }: {
   title: string;
   pageDataList: PageData[];
-  totalPages: number;
   onExpand: () => void;
 }) {
   const [faceIndex, setFaceIndex] = useState(0);
+  const [selectedPhoto, setSelectedPhoto] = useState<AlbumPhoto | null>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
-  // Build ordered list of face dataUrls: cover front, page backs/fronts, back cover
+  // Build ordered list of face dataUrls + photo/cell metadata
   const faces = useMemo(() => {
-    const list: { dataUrl: string; label: string }[] = [];
+    const list: FaceData[] = [];
     for (let i = 0; i < pageDataList.length; i++) {
       if (pageDataList[i].front) {
         list.push({
           dataUrl: pageDataList[i].frontDataUrl,
-          label:
-            i === 0
-              ? "Cover"
-              : `Page ${i * 2 - 1}`,
+          label: i === 0 ? "Cover" : `Page ${i * 2 - 1}`,
+          photos: pageDataList[i].frontPhotos,
+          cells: pageDataList[i].frontCells,
         });
       }
       if (pageDataList[i].back) {
         list.push({
           dataUrl: pageDataList[i].backDataUrl,
-          label:
-            i === pageDataList.length - 1
-              ? "Back Cover"
-              : `Page ${i * 2}`,
+          label: i === pageDataList.length - 1 ? "Back Cover" : `Page ${i * 2}`,
+          photos: pageDataList[i].backPhotos,
+          cells: pageDataList[i].backCells,
         });
       }
     }
@@ -901,109 +1077,102 @@ function FlatPageViewer({
   }, [pageDataList]);
 
   const totalFaces = faces.length;
+  const lastFace = totalFaces - 1;
 
-  // Swipe support
+  // Handle click on the page image to detect which photo was clicked
+  const handleImgClick = useCallback(
+    (e: React.MouseEvent<HTMLImageElement>) => {
+      const face = faces[faceIndex];
+      if (!face || !imgRef.current) return;
+      const rect = imgRef.current.getBoundingClientRect();
+      const photo = detectPhotoAtClick(
+        e.clientX,
+        e.clientY,
+        rect,
+        face.photos,
+        face.cells
+      );
+      if (photo) setSelectedPhoto(photo);
+    },
+    [faces, faceIndex]
+  );
+
+  // Swipe support — track start position to distinguish swipe from tap
   const touchStartX = useRef(0);
-
+  const touchStartY = useRef(0);
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   }, []);
-
   const handleTouchEnd = useCallback(
     (e: React.TouchEvent) => {
       const dx = e.changedTouches[0].clientX - touchStartX.current;
       if (Math.abs(dx) > 50) {
-        if (dx < 0 && faceIndex < totalFaces - 1) setFaceIndex((i) => i + 1);
+        if (dx < 0 && faceIndex < lastFace) setFaceIndex((i) => i + 1);
         if (dx > 0 && faceIndex > 0) setFaceIndex((i) => i - 1);
       }
     },
-    [faceIndex, totalFaces]
+    [faceIndex, lastFace]
   );
 
   // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") setFaceIndex((i) => Math.min(i + 1, totalFaces - 1));
+      if (e.key === "ArrowRight") setFaceIndex((i) => Math.min(i + 1, lastFace));
       if (e.key === "ArrowLeft") setFaceIndex((i) => Math.max(i - 1, 0));
+      if (e.key === "Escape") setSelectedPhoto(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [totalFaces]);
+  }, [lastFace]);
+
+  // Navigate directly by face index — each face is one screen in flat view
+  const handleSetFace = useCallback(
+    (f: number) => {
+      setFaceIndex(Math.max(0, Math.min(f, lastFace)));
+    },
+    [lastFace]
+  );
 
   return (
-    <div className="min-h-screen bg-[#fafafa] flex flex-col">
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-4 pt-20 md:pt-24 pb-3">
-        <Link
-          href="/photos"
-          className="text-xs uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors"
-        >
-          &larr; Back
-        </Link>
-        <h1 className="text-sm font-light tracking-tight text-black/60 truncate mx-4">
-          {title}
-        </h1>
-        <button
-          onClick={onExpand}
-          className="text-[10px] uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors whitespace-nowrap"
-        >
-          View 3D
-        </button>
-      </div>
-
-      {/* Page image */}
+    <div className="h-screen bg-[#fafafa] flex flex-col overflow-hidden">
+      {/* Page image area — fills space above control bar */}
       <div
-        className="flex-1 flex items-center justify-center px-4 py-2 relative"
+        className="flex-1 flex items-center justify-center px-4 pt-14 md:pt-[4.5rem]"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Left arrow */}
-        {faceIndex > 0 && (
-          <button
-            onClick={() => setFaceIndex((i) => i - 1)}
-            className="absolute left-2 md:left-6 z-10 w-9 h-9 md:w-11 md:h-11 rounded-full bg-white/80 border border-black/10 flex items-center justify-center hover:bg-white transition-all shadow-sm"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-        )}
-
         {faces[faceIndex] && (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
+            ref={imgRef}
             src={faces[faceIndex].dataUrl}
             alt={faces[faceIndex].label}
-            className="max-h-[65vh] md:max-h-[70vh] w-auto object-contain rounded-sm shadow-lg"
+            className="max-h-[60vh] md:max-h-[70vh] w-auto object-contain rounded-sm shadow-lg cursor-pointer"
             draggable={false}
+            onClick={handleImgClick}
           />
-        )}
-
-        {/* Right arrow */}
-        {faceIndex < totalFaces - 1 && (
-          <button
-            onClick={() => setFaceIndex((i) => i + 1)}
-            className="absolute right-2 md:right-6 z-10 w-9 h-9 md:w-11 md:h-11 rounded-full bg-white/80 border border-black/10 flex items-center justify-center hover:bg-white transition-all shadow-sm"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50">
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
         )}
       </div>
 
-      {/* Bottom page indicator */}
-      <div className="flex justify-center gap-1.5 pb-6 pt-2">
-        {faces.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setFaceIndex(i)}
-            className={`w-2 h-2 rounded-full transition-all duration-200 ${
-              i === faceIndex ? "bg-black/60 scale-125" : "bg-black/15"
-            }`}
-          />
-        ))}
-      </div>
+      {/* Shared control bar at bottom */}
+      <ControlBar
+        title={title}
+        page={faceIndex}
+        totalPages={lastFace}
+        onSetPage={handleSetFace}
+        toggleLabel="View 3D"
+        onToggle={onExpand}
+        showNav
+      />
+
+      {/* Download modal */}
+      {selectedPhoto && (
+        <DownloadModal
+          photo={selectedPhoto}
+          onClose={() => setSelectedPhoto(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1040,9 +1209,21 @@ export default function PhotoBook({
   const [page, setPage] = useState(0);
   const [pageDataList, setPageDataList] = useState<PageData[] | null>(null);
   const [totalPages, setTotalPages] = useState(0);
+  const [selectedPhoto, setSelectedPhoto] = useState<AlbumPhoto | null>(null);
 
-  // Intro animation
-  const [introPhase, setIntroPhase] = useState<IntroPhase>("closed");
+  // Book transition from shelf
+  const { phase: transitionPhase, enterTransition, clearTransition } =
+    useBookTransition();
+  const hasTransition =
+    transitionPhase === "holding" ||
+    transitionPhase === "exiting" ||
+    transitionPhase === "entering";
+
+  // Canvas fade-in: start transparent when coming from transition
+  const [canvasOpacity, setCanvasOpacity] = useState(hasTransition ? 0 : 1);
+
+  // Intro animation — hold at "laying" initially, only start when transition finishes
+  const [introPhase, setIntroPhase] = useState<IntroPhase>("laying");
 
   // View mode: flat (mobile default) or 3d (desktop default)
   const isMobile = useIsMobile();
@@ -1069,12 +1250,41 @@ export default function PhotoBook({
     Promise.all(pageDataPromises).then(setPageDataList);
   }, [photos, title, coverImage]);
 
+  // When textures are ready AND we have an active transition, trigger the entry animation
+  const entryTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!pageDataList || entryTriggeredRef.current) return;
+    if (
+      transitionPhase === "holding" ||
+      transitionPhase === "exiting"
+    ) {
+      entryTriggeredRef.current = true;
+
+      // Small delay to let the 3D canvas render a first frame
+      const timer = setTimeout(() => {
+        // Fade in the canvas
+        setCanvasOpacity(1);
+        // Signal the overlay to shrink and fade out
+        enterTransition();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [pageDataList, transitionPhase, enterTransition]);
+
+  // Clean up transition when done
+  useEffect(() => {
+    if (transitionPhase === "done") {
+      clearTransition();
+    }
+  }, [transitionPhase, clearTransition]);
+
   // Keyboard navigation (only in 3D mode when intro is done)
   useEffect(() => {
     if (viewMode !== "3d" || introPhase !== "done") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight") setPage((p) => Math.min(p + 1, totalPages));
       if (e.key === "ArrowLeft") setPage((p) => Math.max(p - 1, 0));
+      if (e.key === "Escape") setSelectedPhoto(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1089,7 +1299,7 @@ export default function PhotoBook({
 
   // Handle switching to 3D
   const handleExpand = useCallback(() => {
-    setIntroPhase("closed");
+    setIntroPhase("laying");
     setPage(0);
     setViewMode("3d");
   }, []);
@@ -1099,7 +1309,12 @@ export default function PhotoBook({
     setViewMode("flat");
   }, []);
 
+  // Loading state — suppress when transition overlay is providing visual continuity
   if (!pageDataList) {
+    if (hasTransition) {
+      // Transition overlay is visible; render nothing (no flash of loading text)
+      return <div className="min-h-screen bg-[#fafafa]" />;
+    }
     return (
       <div className="min-h-screen bg-white flex items-center justify-center pt-16">
         <p className="text-xs uppercase tracking-wider text-black/40">
@@ -1115,58 +1330,25 @@ export default function PhotoBook({
       <FlatPageViewer
         title={title}
         pageDataList={pageDataList}
-        totalPages={totalPages}
         onExpand={handleExpand}
       />
     );
   }
 
-  const introDone = introPhase === "done";
-
   return (
-    <div className="min-h-screen bg-white">
-      {/* UI only visible after intro */}
-      {introDone && (
-        <BookUI
-          title={title}
-          page={page}
-          totalPages={totalPages}
-          onSetPage={handleSetPage}
-        />
-      )}
-
-      {/* Top bar during intro (just back link + title) */}
-      {!introDone && (
-        <div className="pointer-events-auto fixed z-10 flex items-center justify-between px-6 pt-20 md:pt-24 w-full">
-          <Link
-            href="/photos"
-            className="text-xs uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors"
-          >
-            &larr; Back
-          </Link>
-          <h1 className="text-sm font-light tracking-tight text-black/60">
-            {title}
-          </h1>
-          <div className="w-12" />
-        </div>
-      )}
-
-      {/* Minimize button (always visible when 3D is active and intro done) */}
-      {introDone && (
-        <button
-          onClick={handleMinimize}
-          className="fixed top-20 md:top-24 right-4 z-20 text-[10px] uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors bg-white/80 px-3 py-1.5 rounded-full border border-black/10"
-        >
-          Minimize
-        </button>
-      )}
-
-      {/* 3D Canvas */}
-      <div className="fixed inset-0">
+    <div className="h-screen w-screen overflow-hidden bg-white relative">
+      {/* 3D Canvas — base layer, fades in when coming from transition */}
+      <div
+        className="absolute inset-0 z-0"
+        style={{
+          opacity: canvasOpacity,
+          transition: "opacity 500ms ease-out",
+        }}
+      >
         <Canvas
           shadows
           camera={{
-            position: [CAMERA_FRONT.x, CAMERA_FRONT.y, CAMERA_FRONT.z],
+            position: [CAMERA_READING.x, CAMERA_READING.y, CAMERA_READING.z],
             fov: 40,
           }}
           style={{ background: "#fafafa" }}
@@ -1177,10 +1359,31 @@ export default function PhotoBook({
               page={page}
               introPhase={introPhase}
               onIntroPhaseChange={setIntroPhase}
+              onPhotoClick={setSelectedPhoto}
             />
           </Suspense>
         </Canvas>
       </div>
+
+      {/* UI overlay layer — above canvas, below navbar */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        <BookUI
+          title={title}
+          page={page}
+          totalPages={totalPages}
+          onSetPage={handleSetPage}
+          onMinimize={handleMinimize}
+          showControls={introPhase === "done"}
+        />
+      </div>
+
+      {/* Download modal */}
+      {selectedPhoto && (
+        <DownloadModal
+          photo={selectedPhoto}
+          onClose={() => setSelectedPhoto(null)}
+        />
+      )}
     </div>
   );
 }

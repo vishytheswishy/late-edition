@@ -5,13 +5,9 @@ import type { AlbumPhoto } from "@/lib/albums";
 
 const PhotoBook = dynamic(() => import("@/components/PhotoBook"), {
   ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <p className="text-xs uppercase tracking-wider text-black/40">
-        Preparing album...
-      </p>
-    </div>
-  ),
+  // Plain background during JS chunk download — the transition overlay
+  // (if active) covers this, and PhotoBook handles its own loading text.
+  loading: () => <div className="min-h-screen bg-[#fafafa]" />,
 });
 
 export default function PhotoBookClient({
