@@ -1211,18 +1211,19 @@ export default function PhotoBook({
   const [totalPages, setTotalPages] = useState(0);
   const [selectedPhoto, setSelectedPhoto] = useState<AlbumPhoto | null>(null);
 
-  // Book transition from shelf
-  const { phase: transitionPhase, enterTransition, clearTransition } =
-    useBookTransition();
-  const hasTransition =
-    transitionPhase === "holding" ||
-    transitionPhase === "exiting" ||
-    transitionPhase === "entering";
+  // Fade-in from black overlay on mount
+  const { phase: transitionPhase, fadeIn } = useBookTransition();
+  const fadeTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (fadeTriggeredRef.current) return;
+    if (transitionPhase === "black") {
+      fadeTriggeredRef.current = true;
+      // Small delay so the page has painted before we fade in
+      requestAnimationFrame(() => fadeIn());
+    }
+  }, [transitionPhase, fadeIn]);
 
-  // Canvas fade-in: start transparent when coming from transition
-  const [canvasOpacity, setCanvasOpacity] = useState(hasTransition ? 0 : 1);
-
-  // Intro animation — hold at "laying" initially, only start when transition finishes
+  // Intro animation — starts at "laying" (auto-opens)
   const [introPhase, setIntroPhase] = useState<IntroPhase>("laying");
 
   // View mode: flat (mobile default) or 3d (desktop default)
@@ -1249,34 +1250,6 @@ export default function PhotoBook({
     setTotalPages(pageCount);
     Promise.all(pageDataPromises).then(setPageDataList);
   }, [photos, title, coverImage]);
-
-  // When textures are ready AND we have an active transition, trigger the entry animation
-  const entryTriggeredRef = useRef(false);
-  useEffect(() => {
-    if (!pageDataList || entryTriggeredRef.current) return;
-    if (
-      transitionPhase === "holding" ||
-      transitionPhase === "exiting"
-    ) {
-      entryTriggeredRef.current = true;
-
-      // Small delay to let the 3D canvas render a first frame
-      const timer = setTimeout(() => {
-        // Fade in the canvas
-        setCanvasOpacity(1);
-        // Signal the overlay to shrink and fade out
-        enterTransition();
-      }, 150);
-      return () => clearTimeout(timer);
-    }
-  }, [pageDataList, transitionPhase, enterTransition]);
-
-  // Clean up transition when done
-  useEffect(() => {
-    if (transitionPhase === "done") {
-      clearTransition();
-    }
-  }, [transitionPhase, clearTransition]);
 
   // Keyboard navigation (only in 3D mode when intro is done)
   useEffect(() => {
@@ -1309,12 +1282,7 @@ export default function PhotoBook({
     setViewMode("flat");
   }, []);
 
-  // Loading state — suppress when transition overlay is providing visual continuity
   if (!pageDataList) {
-    if (hasTransition) {
-      // Transition overlay is visible; render nothing (no flash of loading text)
-      return <div className="min-h-screen bg-[#fafafa]" />;
-    }
     return (
       <div className="min-h-screen bg-white flex items-center justify-center pt-16">
         <p className="text-xs uppercase tracking-wider text-black/40">
@@ -1337,14 +1305,8 @@ export default function PhotoBook({
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-white relative">
-      {/* 3D Canvas — base layer, fades in when coming from transition */}
-      <div
-        className="absolute inset-0 z-0"
-        style={{
-          opacity: canvasOpacity,
-          transition: "opacity 500ms ease-out",
-        }}
-      >
+      {/* 3D Canvas — base layer */}
+      <div className="absolute inset-0 z-0">
         <Canvas
           shadows
           camera={{

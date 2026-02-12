@@ -13,29 +13,14 @@ import {
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
-export type TransitionPhase =
-  | "idle"
-  | "exiting"
-  | "holding"
-  | "entering"
-  | "done";
-
-export interface TransitionData {
-  coverDataUrl: string;
-  originRect: DOMRect;
-  slug: string;
-}
+type TransitionPhase = "idle" | "fading-out" | "black" | "fading-in";
 
 interface BookTransitionContextValue {
   phase: TransitionPhase;
-  data: TransitionData | null;
-  startTransition: (data: TransitionData) => void;
-  /** Move to "holding" — call once the cover fills the viewport */
-  holdTransition: () => void;
-  /** Move to "entering" — call on detail page once 3D scene is ready */
-  enterTransition: (targetRect?: DOMRect) => void;
-  /** Clean up — call once entry animation is fully complete */
-  clearTransition: () => void;
+  /** Fade to black, then call onBlack once fully opaque */
+  fadeOut: (onBlack: () => void) => void;
+  /** Fade from black back to transparent */
+  fadeIn: () => void;
 }
 
 const BookTransitionContext = createContext<
@@ -52,12 +37,11 @@ export function useBookTransition() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Durations (ms)                                                     */
+/*  Durations                                                          */
 /* ------------------------------------------------------------------ */
 
-const EXIT_DURATION = 450;
-const ENTER_DURATION = 600;
-const FADE_DURATION = 400;
+const FADE_OUT_MS = 350;
+const FADE_IN_MS = 400;
 
 /* ------------------------------------------------------------------ */
 /*  Provider + Overlay                                                 */
@@ -69,183 +53,59 @@ export function BookTransitionProvider({
   children: React.ReactNode;
 }) {
   const [phase, setPhase] = useState<TransitionPhase>("idle");
-  const [data, setData] = useState<TransitionData | null>(null);
+  const onBlackRef = useRef<(() => void) | null>(null);
 
-  // Track overlay style separately for transform animations
-  const [overlayStyle, setOverlayStyle] = useState<React.CSSProperties>({});
-  const [overlayVisible, setOverlayVisible] = useState(false);
-  const [overlayOpacity, setOverlayOpacity] = useState(1);
-
-  // Ref to avoid stale closures in callbacks
-  const phaseRef = useRef<TransitionPhase>("idle");
-  phaseRef.current = phase;
-
-  /* ---------- startTransition ---------- */
-  const startTransition = useCallback((incoming: TransitionData) => {
-    setData(incoming);
-    setOverlayOpacity(1);
-    setOverlayVisible(true);
-
-    // Position the overlay at the book's screen rect
-    const { originRect } = incoming;
-    setOverlayStyle({
-      left: originRect.left,
-      top: originRect.top,
-      width: originRect.width,
-      height: originRect.height,
-      transform: "none",
-      transition: "none",
-      borderRadius: "4px",
-    });
-
-    setPhase("exiting");
-
-    // After one frame, animate to fullscreen
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        const ease = "cubic-bezier(0.4, 0, 0.2, 1)";
-        const d = `${EXIT_DURATION}ms`;
-        setOverlayStyle({
-          left: 0,
-          top: 0,
-          width: "100vw",
-          height: "100vh",
-          transform: "none",
-          transition: [
-            `left ${d} ${ease}`,
-            `top ${d} ${ease}`,
-            `width ${d} ${ease}`,
-            `height ${d} ${ease}`,
-            `border-radius ${d} ${ease}`,
-          ].join(", "),
-          borderRadius: "0px",
-        });
-      });
-    });
+  /* ---------- fadeOut ---------- */
+  const fadeOut = useCallback((onBlack: () => void) => {
+    onBlackRef.current = onBlack;
+    setPhase("fading-out");
   }, []);
 
-  /* ---------- holdTransition ---------- */
-  const holdTransition = useCallback(() => {
-    setPhase("holding");
-  }, []);
-
-  /* ---------- enterTransition ---------- */
-  const enterTransition = useCallback(
-    (targetRect?: DOMRect) => {
-      setPhase("entering");
-
-      const ease = "cubic-bezier(0.4, 0, 0.2, 1)";
-      const d = `${ENTER_DURATION}ms`;
-
-      if (targetRect) {
-        // Animate overlay to the target position (the book on the table)
-        setOverlayStyle({
-          left: targetRect.left,
-          top: targetRect.top,
-          width: targetRect.width,
-          height: targetRect.height,
-          transform: "perspective(800px) rotateX(12deg)",
-          transition: [
-            `left ${d} ${ease}`,
-            `top ${d} ${ease}`,
-            `width ${d} ${ease}`,
-            `height ${d} ${ease}`,
-            `transform ${d} ${ease}`,
-            `border-radius ${d} ${ease}`,
-          ].join(", "),
-          borderRadius: "4px",
-        });
-      } else {
-        // No target rect — just scale down slightly as a dissolve effect
-        setOverlayStyle((prev) => ({
-          ...prev,
-          transform: "scale(1.02)",
-          transition: `transform ${d} ease-out`,
-        }));
-      }
-
-      // Fade out the overlay
-      setTimeout(() => {
-        setOverlayOpacity(0);
-      }, ENTER_DURATION * 0.25);
-
-      // Clean up after full fade
-      setTimeout(() => {
-        setPhase("done");
-        setOverlayVisible(false);
-        setData(null);
-      }, ENTER_DURATION + FADE_DURATION);
-    },
-    []
-  );
-
-  /* ---------- clearTransition ---------- */
-  const clearTransition = useCallback(() => {
-    setPhase("idle");
-    setOverlayVisible(false);
-    setOverlayOpacity(1);
-    setData(null);
-  }, []);
-
-  /* ---------- Auto-hold after exit duration ---------- */
+  // Once the CSS transition ends and we're fully black, fire the callback
   useEffect(() => {
-    if (phase !== "exiting") return;
+    if (phase !== "fading-out") return;
     const timer = setTimeout(() => {
-      if (phaseRef.current === "exiting") {
-        setPhase("holding");
-      }
-    }, EXIT_DURATION + 50);
+      setPhase("black");
+      onBlackRef.current?.();
+      onBlackRef.current = null;
+    }, FADE_OUT_MS);
     return () => clearTimeout(timer);
   }, [phase]);
 
+  /* ---------- fadeIn ---------- */
+  const fadeIn = useCallback(() => {
+    setPhase("fading-in");
+    setTimeout(() => {
+      setPhase("idle");
+    }, FADE_IN_MS);
+  }, []);
+
   /* ---------- Context value ---------- */
-  const value: BookTransitionContextValue = {
-    phase,
-    data,
-    startTransition,
-    holdTransition,
-    enterTransition,
-    clearTransition,
-  };
+  const value: BookTransitionContextValue = { phase, fadeOut, fadeIn };
+
+  const isVisible = phase !== "idle";
+  const isOpaque = phase === "black" || phase === "fading-out";
 
   return (
     <BookTransitionContext.Provider value={value}>
       {children}
 
-      {/* Cover overlay — persists across route changes */}
-      {overlayVisible && data && (
+      {/* Full-screen black overlay */}
+      {isVisible && (
         <div
           style={{
             position: "fixed",
+            inset: 0,
             zIndex: 150,
             pointerEvents: "none",
-            overflow: "hidden",
-            willChange: "left, top, width, height, transform, opacity",
-            ...overlayStyle,
+            backgroundColor: "#000",
+            opacity: isOpaque ? 1 : 0,
+            transition:
+              phase === "fading-out"
+                ? `opacity ${FADE_OUT_MS}ms ease-in`
+                : `opacity ${FADE_IN_MS}ms ease-out`,
           }}
-        >
-          {/* Inner element handles opacity separately to avoid transition conflicts */}
-          <div
-            style={{
-              width: "100%",
-              height: "100%",
-              opacity: overlayOpacity,
-              transition: `opacity ${FADE_DURATION}ms ease-out`,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={data.coverDataUrl}
-              alt=""
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                display: "block",
-              }}
-            />
-          </div>
-        </div>
+        />
       )}
     </BookTransitionContext.Provider>
   );
