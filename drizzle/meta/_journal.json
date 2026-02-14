@@ -15,6 +15,20 @@
       "when": 1771098824010,
       "tag": "0001_mushy_sharon_ventura",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771101567610,
+      "tag": "0002_milky_mongu",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1771101692126,
+      "tag": "0003_dazzling_blackheart",
+      "breakpoints": true
     }
   ]
 }

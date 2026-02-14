@@ -8,8 +8,9 @@ import type { AlbumMeta } from "@/lib/albums";
 import type { Mix, StaffPick, MusicData } from "@/lib/music";
 import type { LookbookImage } from "@/lib/lookbook";
 import type { Rsvp } from "@/lib/rsvps";
+import type { StaffMemberMeta } from "@/lib/staff";
 
-type Tab = "articles" | "events" | "albums" | "music" | "lookbook";
+type Tab = "articles" | "events" | "albums" | "music" | "lookbook" | "staff" | "settings";
 
 export default function AdminPage() {
   return (
@@ -38,6 +39,9 @@ function AdminContent() {
   const [musicSaving, setMusicSaving] = useState(false);
   const [lookbookImages, setLookbookImages] = useState<LookbookImage[]>([]);
   const [lookbookUploading, setLookbookUploading] = useState(false);
+  const [staffList, setStaffList] = useState<StaffMemberMeta[]>([]);
+  const [contactPhoto, setContactPhoto] = useState("");
+  const [contactPhotoUploading, setContactPhotoUploading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importPreview, setImportPreview] = useState<{title: string; slug: string; date: string; coverImage?: string; imageCount?: number; youtubeVideoId?: string}[]>([]);
@@ -125,6 +129,27 @@ function AdminContent() {
     }
   }, []);
 
+  const fetchStaff = useCallback(async () => {
+    try {
+      const res = await fetch("/api/staff?fresh");
+      if (res.ok) setStaffList(await res.json());
+    } catch {
+      console.error("Failed to fetch staff");
+    }
+  }, []);
+
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings?key=contact_photo");
+      if (res.ok) {
+        const data = await res.json();
+        setContactPhoto(data.value || "");
+      }
+    } catch {
+      console.error("Failed to fetch settings");
+    }
+  }, []);
+
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
@@ -132,11 +157,11 @@ function AdminContent() {
   useEffect(() => {
     if (authenticated) {
       setLoading(true);
-      Promise.all([fetchPosts(), fetchEvents(), fetchAlbums(), fetchMusic(), fetchLookbook()]).finally(() =>
+      Promise.all([fetchPosts(), fetchEvents(), fetchAlbums(), fetchMusic(), fetchLookbook(), fetchStaff(), fetchSettings()]).finally(() =>
         setLoading(false)
       );
     }
-  }, [authenticated, fetchPosts, fetchEvents, fetchAlbums, fetchMusic, fetchLookbook]);
+  }, [authenticated, fetchPosts, fetchEvents, fetchAlbums, fetchMusic, fetchLookbook, fetchStaff, fetchSettings]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,6 +192,8 @@ function AdminContent() {
     setMixes([]);
     setStaffPicks([]);
     setLookbookImages([]);
+    setStaffList([]);
+    setContactPhoto("");
   };
 
   // ── Music helpers ──
@@ -435,6 +462,16 @@ function AdminContent() {
     }
   };
 
+  const handleDeleteStaffMember = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`/api/staff/${id}`, { method: "DELETE" });
+      if (res.ok) setStaffList((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      alert("Failed to delete staff member");
+    }
+  };
+
   const switchTab = (tab: Tab) => {
     setActiveTab(tab);
     router.replace(`/admin?tab=${tab}`, { scroll: false });
@@ -486,6 +523,8 @@ function AdminContent() {
     { key: "albums", label: "Albums" },
     { key: "music", label: "Music" },
     { key: "lookbook", label: "Lookbook" },
+    { key: "staff", label: "Staff" },
+    { key: "settings", label: "Settings" },
   ];
 
   return (
@@ -1239,6 +1278,208 @@ function AdminContent() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Staff Tab */}
+            {activeTab === "staff" && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-normal tracking-tight">
+                    Staff Members
+                  </h2>
+                  <button
+                    onClick={() => router.push("/admin/staff/new")}
+                    className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors"
+                  >
+                    New Member
+                  </button>
+                </div>
+                {staffList.length === 0 ? (
+                  <div className="text-center py-20">
+                    <p className="text-black/40 text-sm mb-4">
+                      No staff members yet
+                    </p>
+                    <button
+                      onClick={() => router.push("/admin/staff/new")}
+                      className="px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors"
+                    >
+                      Add Your First Member
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {staffList.map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center justify-between p-4 border border-black/10 rounded-lg hover:border-black/20 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1 mr-4">
+                          {member.coverImage && (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={member.coverImage}
+                              alt={member.name}
+                              className="w-10 h-10 rounded-full object-cover shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-base font-medium truncate">
+                              {member.name}
+                            </h3>
+                            <p className="text-sm text-black/40 mt-0.5">
+                              {member.role || "No role"}
+                              <span className="ml-2">
+                                &middot; Order: {member.order}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={() =>
+                              router.push(
+                                `/admin/staff/edit/${member.id}`
+                              )
+                            }
+                            className="px-3 py-1.5 text-sm border border-black/20 rounded hover:bg-black/5 transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleDeleteStaffMember(member.id, member.name)
+                            }
+                            className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Settings Tab */}
+            {activeTab === "settings" && (
+              <div className="space-y-8">
+                <h2 className="text-xl font-normal tracking-tight">
+                  Site Settings
+                </h2>
+
+                {/* Contact Page Photo */}
+                <div className="p-6 border border-black/10 rounded-lg space-y-4">
+                  <div>
+                    <h3 className="text-base font-medium mb-1">
+                      Contact Page Photo
+                    </h3>
+                    <p className="text-sm text-black/40">
+                      The image shown alongside the contact form. Falls back to
+                      the default magazine cover if not set.
+                    </p>
+                  </div>
+
+                  {/* Preview */}
+                  <div className="relative w-48 aspect-[3/4] overflow-hidden rounded bg-neutral-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={contactPhoto || "/about/cover.png"}
+                      alt="Contact page photo"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <label
+                      className={`px-4 py-2 bg-black text-white rounded-lg text-sm hover:bg-black/80 transition-colors cursor-pointer ${
+                        contactPhotoUploading
+                          ? "opacity-50 pointer-events-none"
+                          : ""
+                      }`}
+                    >
+                      {contactPhotoUploading
+                        ? "Uploading..."
+                        : contactPhoto
+                          ? "Replace Photo"
+                          : "Upload Photo"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          e.target.value = "";
+                          setContactPhotoUploading(true);
+                          try {
+                            // Upload image via /api/upload
+                            const formData = new FormData();
+                            formData.append("file", file);
+                            const uploadRes = await fetch("/api/upload", {
+                              method: "POST",
+                              body: formData,
+                            });
+                            if (!uploadRes.ok)
+                              throw new Error("Upload failed");
+                            const { url } = await uploadRes.json();
+
+                            // Save URL to settings
+                            const saveRes = await fetch("/api/settings", {
+                              method: "PUT",
+                              headers: {
+                                "Content-Type": "application/json",
+                              },
+                              body: JSON.stringify({
+                                key: "contact_photo",
+                                value: url,
+                              }),
+                            });
+                            if (!saveRes.ok) throw new Error("Save failed");
+                            setContactPhoto(url);
+                          } catch {
+                            alert("Failed to upload photo");
+                          } finally {
+                            setContactPhotoUploading(false);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    {contactPhoto && (
+                      <button
+                        onClick={async () => {
+                          if (
+                            !confirm(
+                              "Remove the contact photo? The default image will be used instead."
+                            )
+                          )
+                            return;
+                          try {
+                            const res = await fetch("/api/settings", {
+                              method: "PUT",
+                              headers: {
+                                "Content-Type": "application/json",
+                              },
+                              body: JSON.stringify({
+                                key: "contact_photo",
+                                value: "",
+                              }),
+                            });
+                            if (!res.ok) throw new Error("Failed");
+                            setContactPhoto("");
+                          } catch {
+                            alert("Failed to remove photo");
+                          }
+                        }}
+                        className="px-4 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </>

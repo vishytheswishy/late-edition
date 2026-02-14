@@ -102,3 +102,33 @@ export const lookbookImages = pgTable("lookbook_images", {
   url: text("url").notNull(),
   order: integer("order").notNull().default(0),
 });
+
+// ── Site Settings ──
+
+export const siteSettings = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull().default(""),
+});
+
+// ── Staff Members ──
+
+export const staffMembers = pgTable("staff_members", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default(""),
+  bio: text("bio").notNull().default(""),
+  coverImage: text("cover_image").notNull().default(""),
+  order: integer("display_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const staffMemberPhotos = pgTable("staff_member_photos", {
+  id: serial("id").primaryKey(),
+  memberId: text("member_id")
+    .notNull()
+    .references(() => staffMembers.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  caption: text("caption").notNull().default(""),
+  order: integer("display_order").notNull().default(0),
+});

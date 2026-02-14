@@ -1,6 +1,10 @@
 import Image from "next/image";
+import { getStaffMembers } from "@/lib/staff";
+import StaffSection from "@/components/StaffSection";
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const members = await getStaffMembers();
+
   return (
     <div className="min-h-screen bg-white pt-16 md:pt-20">
       <main className="container mx-auto px-4 py-16">
@@ -39,9 +43,10 @@ export default function AboutPage() {
               />
             </div>
           </div>
+
+          <StaffSection members={members} />
         </div>
       </main>
     </div>
   );
 }
-

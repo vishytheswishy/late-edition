@@ -551,18 +551,20 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
       )}
 
       {/* Eye-blink transition overlay */}
-      <div
-        className="absolute inset-0 z-50 pointer-events-none bg-black"
-        style={{
-          opacity: blinkPhase === "closing" || blinkPhase === "black" ? 1 : 0,
-          transition:
-            blinkPhase === "closing"
-              ? "opacity 300ms ease-in"
-              : blinkPhase === "revealing"
-                ? "opacity 500ms ease-out"
-                : "none",
-        }}
-      />
+      {blinkPhase !== "idle" && (
+        <div
+          className="absolute inset-0 z-50 pointer-events-none bg-black"
+          style={{
+            opacity: blinkPhase === "closing" || blinkPhase === "black" ? 1 : 0,
+            transition:
+              blinkPhase === "closing"
+                ? "opacity 300ms ease-in"
+                : blinkPhase === "revealing"
+                  ? "opacity 500ms ease-out"
+                  : "none",
+          }}
+        />
+      )}
     </div>
   );
 }

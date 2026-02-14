@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
+import { useState, useEffect } from "react";
 
 export default function ContactPage() {
   const [firstName, setFirstName] = useState("");
@@ -9,6 +8,16 @@ export default function ContactPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [contactPhoto, setContactPhoto] = useState("/about/cover.png");
+
+  useEffect(() => {
+    fetch("/api/settings?key=contact_photo")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.value) setContactPhoto(data.value);
+      })
+      .catch(() => {});
+  }, []);
 
   const isValid =
     firstName.trim() && lastName.trim() && email.trim() && message.trim();
@@ -161,12 +170,11 @@ export default function ContactPage() {
           {/* Image side */}
           <div className="flex-1 max-w-lg">
             <div className="relative w-full aspect-[3/4] overflow-hidden">
-              <Image
-                src="/lookbook/LE+BEACH+TEST-3.webp"
-                alt="Person lying on sand with a magazine"
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={contactPhoto}
+                alt="Late Edition"
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
