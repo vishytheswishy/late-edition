@@ -14,5 +14,5 @@ export const PHOTOS_PER_PAGE = 4;
 export const CANVAS_W = 1024;
 export const CANVAS_H = 1365;
 
-export const CAMERA_READING = { x: 0, y: 3.4, z: 2.55 };
+export const CAMERA_READING = { x: 0, y: 3.0, z: 2.8 };
 export const BOOK_READING_ROT_X = -Math.PI / 3.5;

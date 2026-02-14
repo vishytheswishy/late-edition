@@ -9,8 +9,9 @@ import type { IntroPhase, PageData } from "./types";
 import { CAMERA_READING, BOOK_READING_ROT_X } from "./constants";
 import Book from "./Book";
 
-const LOOK_AT_TARGET = new Vector3(0, -0.5, 0);
-const BOOK_READING_Y = -0.15;
+const LOOK_AT_TARGET = new Vector3(0, -0.5, -0.6);
+const BOOK_READING_Y = -0.5;
+const BOOK_READING_Z = -0.6;
 
 export default function BookScene({
   pageDataList,
@@ -44,6 +45,7 @@ export default function BookScene({
       camera.lookAt(LOOK_AT_TARGET);
       if (bookGroupRef.current) {
         bookGroupRef.current.position.y = BOOK_READING_Y;
+        bookGroupRef.current.position.z = BOOK_READING_Z;
         bookGroupRef.current.rotation.x = BOOK_READING_ROT_X;
       }
     }
@@ -61,6 +63,7 @@ export default function BookScene({
         camera.lookAt(LOOK_AT_TARGET);
         if (bookGroupRef.current) {
           bookGroupRef.current.position.y = BOOK_READING_Y;
+          bookGroupRef.current.position.z = BOOK_READING_Z;
           bookGroupRef.current.rotation.x = BOOK_READING_ROT_X;
         }
       }
@@ -80,6 +83,7 @@ export default function BookScene({
     camera.lookAt(lookAtRef.current);
     easing.damp(bookGroupRef.current.rotation, "x", BOOK_READING_ROT_X, 0.15, delta);
     easing.damp(bookGroupRef.current.position, "y", BOOK_READING_Y, 0.15, delta);
+    easing.damp(bookGroupRef.current.position, "z", BOOK_READING_Z, 0.15, delta);
 
     if (phase === "laying") {
       // Book is already at reading position — brief pause then open the cover
@@ -97,9 +101,9 @@ export default function BookScene({
   });
 
   const responsiveScale = useMemo(() => {
-    const base = 1.8;
-    const widthScale = viewport.width / 3.2;
-    const heightScale = viewport.height / 3.0;
+    const base = 2.2;
+    const widthScale = viewport.width / 3.0;
+    const heightScale = viewport.height / 2.2;
     const scale = Math.min(base, widthScale, heightScale);
     return Math.max(0.75, scale);
   }, [viewport.width, viewport.height]);
@@ -110,6 +114,7 @@ export default function BookScene({
       rotation-x={BOOK_READING_ROT_X}
       scale={responsiveScale}
       position-y={BOOK_READING_Y}
+      position-z={BOOK_READING_Z}
     >
       <Book pageDataList={pageDataList} page={page} onPhotoClick={onPhotoClick} />
     </group>

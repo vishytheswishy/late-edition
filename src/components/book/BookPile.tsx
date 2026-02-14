@@ -23,7 +23,7 @@ const STACK_GAP = 0.008;
 const SLIDE_OFF_X = 3.0; // how far the outgoing book slides
 const SLIDE_DURATION_MS = 400;
 
-export const CAMERA_PILE = { x: 0, y: 3.5, z: 2.5 };
+export const CAMERA_PILE = { x: 0, y: 3.0, z: 2.0 };
 export const CAMERA_PILE_LOOK_AT = { x: 0, y: -1.5, z: 0 };
 
 /* ------------------------------------------------------------------ */
