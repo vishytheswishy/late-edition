@@ -22,7 +22,7 @@ export default async function EventPage({
   return (
     <div className="min-h-screen bg-white pt-16 md:pt-20 animate-[fadeInUp_0.6s_ease-out_both]">
       {/* Header section */}
-      <div className="container mx-auto px-4 pt-16 max-w-3xl">
+      <div className="container mx-auto px-4 pt-8 max-w-3xl">
         <Link
           href="/events"
           className="text-sm text-black/40 hover:text-black/60 transition-colors"
@@ -30,8 +30,8 @@ export default async function EventPage({
           &larr; All Events
         </Link>
 
-        <article className="mt-8">
-          <header className="mb-10">
+        <article className="mt-6">
+          <header className="mb-8">
             <time className="text-[10px] text-black/40 uppercase tracking-[0.15em]">
               {new Date(event.createdAt).toLocaleDateString("en-US", {
                 month: "long",
@@ -53,7 +53,7 @@ export default async function EventPage({
 
       {/* Cover image / flyer — full-bleed for impact */}
       {hasFlyer && (
-        <div className="w-full mb-16">
+        <div className="w-full mb-10">
           <div className="container mx-auto px-4 max-w-4xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

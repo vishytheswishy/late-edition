@@ -54,7 +54,7 @@ export default function RsvpForm({ eventId }: RsvpFormProps) {
 
   if (submitted) {
     return (
-      <div className="mt-12 border-t border-black/10 pt-10">
+      <div className="mt-10 border-t border-black/10 pt-10">
         <div className="text-center py-8">
           <h3 className="text-xl font-normal tracking-tight mb-2">
             You&apos;re on the list!
@@ -85,7 +85,7 @@ export default function RsvpForm({ eventId }: RsvpFormProps) {
   }
 
   return (
-    <div className="mt-12 border-t border-black/10 pt-10">
+    <div className="mt-10 border-t border-black/10 pt-10">
       <h3 className="text-xl font-normal tracking-tight mb-6">RSVP</h3>
 
       <form onSubmit={handleSubmit} className="space-y-4 max-w-md">

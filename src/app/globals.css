@@ -61,3 +61,13 @@ body {
   letter-spacing: 0.01em;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Event flyer images — override inline max-width so they fill the content column */
+.event-flyer {
+  text-align: center;
+}
+.event-flyer img {
+  width: 100% !important;
+  max-width: none !important;
+  border-radius: 12px;
+}
