@@ -10,6 +10,7 @@ import {
 } from "three";
 import { easing } from "maath";
 import { createCoverCanvas } from "@/lib/coverTexture";
+import { CAMERA_POS, CAMERA_LOOK_AT } from "./constants";
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */
@@ -17,14 +18,15 @@ import { createCoverCanvas } from "@/lib/coverTexture";
 
 const BOOK_W = 1.28;
 const BOOK_H = 1.71;
-const BOOK_D = 0.12;
+const BOOK_D = 0.04;
 const STACK_GAP = 0.008;
 
 const SLIDE_OFF_X = 3.0; // how far the outgoing book slides
 const SLIDE_DURATION_MS = 400;
 
-export const CAMERA_PILE = { x: 0, y: 3.0, z: 2.0 };
-export const CAMERA_PILE_LOOK_AT = { x: 0, y: -1.5, z: 0 };
+// Re-export for backward compat (used by PhotoAlbums Canvas init)
+export const CAMERA_PILE = CAMERA_POS;
+export const CAMERA_PILE_LOOK_AT = CAMERA_LOOK_AT;
 
 /* ------------------------------------------------------------------ */
 /*  Cover texture cache                                                */
@@ -254,55 +256,27 @@ export default function BookPile({
     return () => window.removeEventListener("keydown", onKey);
   }, [opening, cycleNext, cyclePrev, onSelect, activeIndex]);
 
-  const { size, viewport } = useThree();
-  const aspect = size.width / size.height;
+  const { viewport } = useThree();
 
-  // On wide viewports the pile appears tiny because fov is vertical and
-  // there's lots of horizontal space.  Pull the camera closer along the
-  // *same* viewing axis (preserving the top-down angle) so the pile
-  // fills a reasonable portion of the screen.
-  const pileCam = useMemo(() => {
-    // t ramps 0→1 as aspect goes from 1 (square) → 2.5 (ultra-wide)
-    const t = Math.max(0, Math.min(1, (aspect - 1) / 1.5));
-    // Scale factor: 1.0 at narrow, down to 0.7 at ultra-wide (i.e. 30% closer)
-    const s = 1 - t * 0.3;
-    return {
-      x: CAMERA_PILE.x,
-      y: CAMERA_PILE_LOOK_AT.y + (CAMERA_PILE.y - CAMERA_PILE_LOOK_AT.y) * s,
-      z: CAMERA_PILE_LOOK_AT.z + (CAMERA_PILE.z - CAMERA_PILE_LOOK_AT.z) * s,
-    };
-  }, [aspect]);
-
-  // Only control camera when NOT opening
+  // Hold camera at the shared static position (same as reading view)
   useFrame(({ camera }, delta) => {
     if (opening) return;
-    easing.damp(camera.position, "x", pileCam.x, 0.3, delta);
-    easing.damp(camera.position, "y", pileCam.y, 0.3, delta);
-    easing.damp(camera.position, "z", pileCam.z, 0.3, delta);
-    camera.lookAt(CAMERA_PILE_LOOK_AT.x, CAMERA_PILE_LOOK_AT.y, CAMERA_PILE_LOOK_AT.z);
+    easing.damp(camera.position, "x", CAMERA_POS.x, 0.15, delta);
+    easing.damp(camera.position, "y", CAMERA_POS.y, 0.15, delta);
+    easing.damp(camera.position, "z", CAMERA_POS.z, 0.15, delta);
+    camera.lookAt(CAMERA_LOOK_AT.x, CAMERA_LOOK_AT.y, CAMERA_LOOK_AT.z);
   });
 
   const responsiveScale = useMemo(() => {
-    const base = 1.6;
-    const scale = Math.min(base, viewport.width / 3.2);
-    return Math.max(0.75, scale);
+    const base = 1.1;
+    const scale = Math.min(base, viewport.width / 4.0);
+    return Math.max(0.6, scale);
   }, [viewport.width]);
 
-  // The desk top surface sits at Y ≈ -1.76.  Books inside the group are
-  // positioned relative to the group origin and then scaled.  At larger
-  // scales the bottom books sink below the desk.  Compute a group Y that
-  // keeps the lowest book sitting on (not inside) the desk.
+  // Position the pile group above the lookAt so it sits higher in frame.
   const groupY = useMemo(() => {
-    const deskTop = -1.76;
-    // Lowest book's local-space centre Y:
-    const lowestLocalY = -(total - 1) * (BOOK_D + STACK_GAP);
-    // Its bottom face in world = groupY + (lowestLocalY - BOOK_D/2) * scale
-    // Solve for groupY so that bottom face = deskTop:
-    const needed = deskTop - (lowestLocalY - BOOK_D / 2) * responsiveScale;
-    // For a single album needed ≈ -1.66, but we don't want to float above
-    // where it used to be, so cap at the original -1.7 (lower is more negative).
-    return Math.max(-1.7, needed);
-  }, [total, responsiveScale]);
+    return CAMERA_LOOK_AT.y + 0.4;
+  }, []);
 
   return (
     <group ref={groupRef} scale={responsiveScale} position-y={groupY}>

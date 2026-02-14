@@ -1,6 +1,6 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
 import { createCoverCanvas } from "@/lib/coverTexture";
-import { CANVAS_W, CANVAS_H, PHOTOS_PER_PAGE } from "./constants";
+import { CANVAS_W, CANVAS_H } from "./constants";
 import type { GridCell, PageData } from "./types";
 import type { AlbumPhoto } from "@/lib/albums";
 
@@ -197,15 +197,40 @@ export function createRoughnessTexture(): CanvasTexture {
 /*  Group photos into PageData                                         */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Deterministic PRNG (mulberry32) seeded from the album title so layouts
+ * are random-looking but stable across renders / reloads.
+ */
+function seededRng(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(31, h) + seed.charCodeAt(i) | 0;
+  }
+  return () => {
+    h |= 0; h = h + 0x6d2b79f5 | 0;
+    let t = Math.imul(h ^ h >>> 15, 1 | h);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
 export function groupPhotosIntoPages(
   photos: AlbumPhoto[],
   title: string,
   coverUrl: string | null,
   date?: string | null
 ): { pageDataPromises: Promise<PageData>[]; pageCount: number } {
+  const rand = seededRng(title);
+
+  // Build variable-size chunks: 1, 2, or 3 photos per page
   const chunks: AlbumPhoto[][] = [];
-  for (let i = 0; i < photos.length; i += PHOTOS_PER_PAGE) {
-    chunks.push(photos.slice(i, i + PHOTOS_PER_PAGE));
+  let i = 0;
+  while (i < photos.length) {
+    const remaining = photos.length - i;
+    // Pick a random page size of 1-3, capped by what's left
+    const size = Math.min(remaining, Math.floor(rand() * 3) + 1);
+    chunks.push(photos.slice(i, i + size));
+    i += size;
   }
 
   interface FaceInfo {

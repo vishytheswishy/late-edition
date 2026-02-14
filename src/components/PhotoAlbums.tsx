@@ -17,8 +17,7 @@ import BookPile from "./book/BookPile";
 import { BookUI } from "./book/ControlBar";
 import DownloadModal from "./book/DownloadModal";
 import FlatPageViewer from "./book/FlatViewer";
-import { CAMERA_READING } from "./book/constants";
-import { CAMERA_PILE } from "./book/BookPile";
+import { CAMERA_POS } from "./book/constants";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -481,7 +480,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
         <Canvas
           shadows
           camera={{
-            position: [CAMERA_PILE.x, CAMERA_PILE.y, CAMERA_PILE.z],
+            position: [CAMERA_POS.x, CAMERA_POS.y, CAMERA_POS.z],
             fov: 40,
           }}
           style={{ background: "#fafafa" }}

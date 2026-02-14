@@ -6,10 +6,10 @@ import { Group, Vector3 } from "three";
 import { easing } from "maath";
 import type { AlbumPhoto } from "@/lib/albums";
 import type { IntroPhase, PageData } from "./types";
-import { CAMERA_READING, BOOK_READING_ROT_X } from "./constants";
+import { CAMERA_POS, CAMERA_LOOK_AT, BOOK_READING_ROT_X } from "./constants";
 import Book from "./Book";
 
-const LOOK_AT_TARGET = new Vector3(0, -0.5, -0.6);
+const LOOK_AT_TARGET = new Vector3(CAMERA_LOOK_AT.x, CAMERA_LOOK_AT.y, CAMERA_LOOK_AT.z);
 const BOOK_READING_Y = -0.5;
 const BOOK_READING_Z = -0.6;
 
@@ -40,7 +40,7 @@ export default function BookScene({
   useEffect(() => {
     if (!didMountSnap.current) {
       didMountSnap.current = true;
-      camera.position.set(CAMERA_READING.x, CAMERA_READING.y, CAMERA_READING.z);
+      camera.position.set(CAMERA_POS.x, CAMERA_POS.y, CAMERA_POS.z);
       lookAtRef.current.copy(LOOK_AT_TARGET);
       camera.lookAt(LOOK_AT_TARGET);
       if (bookGroupRef.current) {
@@ -58,7 +58,7 @@ export default function BookScene({
       phaseStartTime.current = Date.now();
       if (introPhase === "laying") {
         // Snap everything to reading position — blink hides the jump
-        camera.position.set(CAMERA_READING.x, CAMERA_READING.y, CAMERA_READING.z);
+        camera.position.set(CAMERA_POS.x, CAMERA_POS.y, CAMERA_POS.z);
         lookAtRef.current.copy(LOOK_AT_TARGET);
         camera.lookAt(LOOK_AT_TARGET);
         if (bookGroupRef.current) {
@@ -77,9 +77,9 @@ export default function BookScene({
     const elapsed = (Date.now() - phaseStartTime.current) / 1000;
 
     // Hold camera and book at reading position (already snapped on mount)
-    easing.damp(camera.position, "x", CAMERA_READING.x, 0.15, delta);
-    easing.damp(camera.position, "y", CAMERA_READING.y, 0.15, delta);
-    easing.damp(camera.position, "z", CAMERA_READING.z, 0.15, delta);
+    easing.damp(camera.position, "x", CAMERA_POS.x, 0.15, delta);
+    easing.damp(camera.position, "y", CAMERA_POS.y, 0.15, delta);
+    easing.damp(camera.position, "z", CAMERA_POS.z, 0.15, delta);
     camera.lookAt(lookAtRef.current);
     easing.damp(bookGroupRef.current.rotation, "x", BOOK_READING_ROT_X, 0.15, delta);
     easing.damp(bookGroupRef.current.position, "y", BOOK_READING_Y, 0.15, delta);
