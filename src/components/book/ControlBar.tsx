@@ -15,8 +15,8 @@ export function ControlBar({
   page: number;
   totalPages: number;
   onSetPage: (p: number) => void;
-  toggleLabel: string;
-  onToggle: () => void;
+  toggleLabel?: string;
+  onToggle?: () => void;
   showNav: boolean;
   backLabel?: string;
   onBack?: () => void;
@@ -34,12 +34,16 @@ export function ControlBar({
         <h1 className="text-xs font-light tracking-tight text-black/60 truncate mx-3">
           {title}
         </h1>
-        <button
-          onClick={onToggle}
-          className="text-xs md:text-[10px] uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors whitespace-nowrap"
-        >
-          {toggleLabel}
-        </button>
+        {toggleLabel && onToggle ? (
+          <button
+            onClick={onToggle}
+            className="text-xs md:text-[10px] uppercase tracking-wider text-black/40 hover:text-black/70 transition-colors whitespace-nowrap"
+          >
+            {toggleLabel}
+          </button>
+        ) : (
+          <div className="w-12" />
+        )}
       </div>
 
       {/* Row 2: prev arrow, page pills, next arrow — animated expand */}

@@ -14,7 +14,7 @@ export default function FlatPageViewer({
 }: {
   title: string;
   pageDataList: PageData[];
-  onExpand: () => void;
+  onExpand?: () => void;
   onBack: () => void;
 }) {
   const [faceIndex, setFaceIndex] = useState(0);
@@ -99,9 +99,9 @@ export default function FlatPageViewer({
   );
 
   return (
-    <div className="h-screen bg-[#fafafa] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-40 bg-[#fafafa] flex flex-col overflow-hidden">
       <div
-        className="flex-1 flex items-center justify-center px-4 pt-14 md:pt-[4.5rem]"
+        className="flex-1 flex items-center justify-center px-4 pt-16 md:pt-[4.5rem]"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
@@ -124,7 +124,7 @@ export default function FlatPageViewer({
           page={faceIndex}
           totalPages={lastFace}
           onSetPage={handleSetFace}
-          toggleLabel="View 3D"
+          toggleLabel={onExpand ? "View 3D" : undefined}
           onToggle={onExpand}
           showNav
           backLabel="Albums"

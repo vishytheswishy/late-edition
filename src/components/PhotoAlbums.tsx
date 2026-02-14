@@ -47,7 +47,7 @@ function useIsMobile() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Browsing overlay                                                   */
+/*  Browsing overlay (desktop 3D)                                      */
 /* ------------------------------------------------------------------ */
 
 function BrowsingOverlay({
@@ -107,6 +107,54 @@ function BrowsingOverlay({
             </p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Mobile album browser                                               */
+/* ------------------------------------------------------------------ */
+
+function MobileAlbumBrowser({
+  albums,
+  onSelect,
+}: {
+  albums: Album[];
+  onSelect: (index: number) => void;
+}) {
+  return (
+    <div className="min-h-screen bg-[#fafafa] pt-16 pb-8 px-4">
+      <h1 className="text-xs uppercase tracking-[0.2em] text-black/40 text-center mb-6">
+        Photo Albums
+      </h1>
+      <div className="grid grid-cols-2 gap-3 max-w-lg mx-auto">
+        {albums.map((album, i) => (
+          <button
+            key={album.id}
+            onClick={() => onSelect(i)}
+            className="group relative aspect-[3/4] rounded-lg overflow-hidden bg-black/[0.03] text-left"
+          >
+            {album.coverImage ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={album.coverImage}
+                alt={album.title}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-active:scale-[1.02]"
+              />
+            ) : (
+              <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-black/10" />
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent pt-10 pb-3 px-3">
+              <p className="text-white text-sm font-medium leading-tight truncate">
+                {album.title}
+              </p>
+              <p className="text-white/60 text-[10px] mt-0.5">
+                {album.photoCount} photo{album.photoCount !== 1 ? "s" : ""}
+              </p>
+            </div>
+          </button>
+        ))}
       </div>
     </div>
   );
@@ -256,15 +304,23 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
 
   const handleSelectAlbum = useCallback(
     (index: number) => {
-      triggerBlink(() => {
+      if (viewMode === "flat") {
+        // Mobile: skip blink/3D, go straight to flat reader
         setSelectedAlbumIndex(index);
         setBrowseIndex(index);
         setPage(0);
-        setIntroPhase("laying");
-        setState("opening");
-      });
+        setState("reading");
+      } else {
+        triggerBlink(() => {
+          setSelectedAlbumIndex(index);
+          setBrowseIndex(index);
+          setPage(0);
+          setIntroPhase("laying");
+          setState("opening");
+        });
+      }
     },
-    [triggerBlink]
+    [viewMode, triggerBlink]
   );
 
   const handleOpenFromOverlay = useCallback(() => {
@@ -452,6 +508,16 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
     );
   }
 
+  // ─── Mobile: album browser ───
+  if (viewMode === "flat" && state === "browsing") {
+    return (
+      <MobileAlbumBrowser
+        albums={albums}
+        onSelect={handleSelectAlbum}
+      />
+    );
+  }
+
   // ─── Flat viewer mode ───
   if (
     viewMode === "flat" &&
@@ -463,7 +529,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
       <FlatPageViewer
         title={currentAlbum.title}
         pageDataList={currentAlbumPages.pageDataList}
-        onExpand={handleExpand}
+        onExpand={isMobile ? undefined : handleExpand}
         onBack={handleBackToAlbums}
       />
     );
@@ -475,7 +541,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
   const isReading = showBook;
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-[#fafafa] relative">
+    <div className="fixed inset-0 z-40 overflow-hidden bg-[#fafafa]">
       <div className="absolute inset-0 z-0">
         <Canvas
           shadows

@@ -8,7 +8,7 @@ export default function ContactPage() {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [submitted, setSubmitted] = useState(false);
-  const [contactPhoto, setContactPhoto] = useState("/about/cover.png");
+  const [contactPhoto, setContactPhoto] = useState("");
 
   useEffect(() => {
     fetch("/api/settings?key=contact_photo")
@@ -155,11 +155,7 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={!isValid}
-                  className="self-start px-10 py-3 border border-black text-[11px] uppercase tracking-[0.2em] font-medium text-black
-                    hover:bg-black hover:text-white
-                    active:scale-[0.98]
-                    disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black disabled:cursor-not-allowed
-                    transition-all duration-200 ease-out cursor-pointer"
+                  className="self-start px-10 py-3 border border-black text-[11px] uppercase tracking-[0.2em] font-medium text-black hover:bg-black hover:text-white active:scale-[0.98] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-black disabled:cursor-not-allowed transition-all duration-200 ease-out cursor-pointer"
                 >
                   Send
                 </button>
@@ -168,16 +164,18 @@ export default function ContactPage() {
           </div>
 
           {/* Image side */}
-          <div className="flex-1 max-w-lg">
-            <div className="relative w-full aspect-[3/4] overflow-hidden">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={contactPhoto}
-                alt="Late Edition"
-                className="w-full h-full object-cover"
-              />
+          {contactPhoto && (
+            <div className="flex-1 max-w-lg">
+              <div className="relative w-full aspect-[3/4] overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={contactPhoto}
+                  alt="Late Edition"
+                  className="w-full h-full object-cover"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </main>
     </div>
