@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/events";
+import RsvpForm from "@/components/RsvpForm";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,8 @@ export default async function EventPage({
             className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-a:text-black prose-a:underline-offset-4 prose-img:rounded-lg [&_.event-flyer]:not-prose"
             dangerouslySetInnerHTML={{ __html: event.content }}
           />
+
+          {event.rsvpEnabled && <RsvpForm eventId={event.id} />}
         </article>
       </main>
     </div>

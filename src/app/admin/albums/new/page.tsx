@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { slugify } from "@/lib/posts";
+import { slugify } from "@/lib/utils";
 import type { AlbumPhoto } from "@/lib/albums";
 
 export default function NewAlbumPage() {

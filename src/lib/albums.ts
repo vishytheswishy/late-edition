@@ -22,6 +22,37 @@ export interface Album extends AlbumMeta {
   photos: AlbumPhoto[];
 }
 
+export async function getAllAlbumsWithPhotos(): Promise<Album[]> {
+  try {
+    const albumRows = await db.select().from(albums);
+    const photoRows = await db
+      .select()
+      .from(albumPhotos)
+      .orderBy(asc(albumPhotos.order));
+
+    const photosByAlbum = new Map<string, AlbumPhoto[]>();
+    for (const p of photoRows) {
+      const list = photosByAlbum.get(p.albumId) || [];
+      list.push({ url: p.url, caption: p.caption });
+      photosByAlbum.set(p.albumId, list);
+    }
+
+    return albumRows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      description: r.description,
+      coverImage: r.coverImage,
+      photoCount: r.photoCount,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+      photos: photosByAlbum.get(r.id) || [],
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getAlbumIndex(): Promise<AlbumMeta[]> {
   try {
     const rows = await db

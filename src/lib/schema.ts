@@ -3,7 +3,9 @@ import {
   text,
   integer,
   serial,
+  boolean,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // ── Posts ──
@@ -28,9 +30,29 @@ export const events = pgTable("events", {
   excerpt: text("excerpt").notNull().default(""),
   coverImage: text("cover_image").notNull().default(""),
   content: text("content").notNull().default(""),
+  rsvpEnabled: boolean("rsvp_enabled").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// ── RSVPs ──
+
+export const rsvps = pgTable(
+  "rsvps",
+  {
+    id: serial("id").primaryKey(),
+    eventId: text("event_id")
+      .notNull()
+      .references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    status: text("status").notNull().default("going"),
+    plusOne: integer("plus_one").notNull().default(0),
+    note: text("note").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("rsvps_event_email_idx").on(table.eventId, table.email)]
+);
 
 // ── Albums ──
 

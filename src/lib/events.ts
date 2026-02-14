@@ -8,6 +8,7 @@ export interface EventMeta {
   slug: string;
   excerpt: string;
   coverImage: string;
+  rsvpEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +26,7 @@ export async function getEventIndex(): Promise<EventMeta[]> {
         slug: events.slug,
         excerpt: events.excerpt,
         coverImage: events.coverImage,
+        rsvpEnabled: events.rsvpEnabled,
         createdAt: events.createdAt,
         updatedAt: events.updatedAt,
       })
@@ -83,6 +85,7 @@ export async function saveEvent(event: Event): Promise<void> {
       excerpt: event.excerpt,
       coverImage: event.coverImage,
       content: event.content,
+      rsvpEnabled: event.rsvpEnabled,
       createdAt: new Date(event.createdAt),
       updatedAt: new Date(event.updatedAt),
     })
@@ -94,6 +97,7 @@ export async function saveEvent(event: Event): Promise<void> {
         excerpt: event.excerpt,
         coverImage: event.coverImage,
         content: event.content,
+        rsvpEnabled: event.rsvpEnabled,
         updatedAt: new Date(event.updatedAt),
       },
     });

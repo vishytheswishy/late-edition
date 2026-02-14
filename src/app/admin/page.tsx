@@ -7,6 +7,7 @@ import type { EventMeta } from "@/lib/events";
 import type { AlbumMeta } from "@/lib/albums";
 import type { Mix, StaffPick, MusicData } from "@/lib/music";
 import type { LookbookImage } from "@/lib/lookbook";
+import type { Rsvp } from "@/lib/rsvps";
 
 type Tab = "articles" | "events" | "albums" | "music" | "lookbook";
 
@@ -44,6 +45,10 @@ function AdminContent() {
   const [eventImporting, setEventImporting] = useState(false);
   const [eventImportPreview, setEventImportPreview] = useState<{title: string; slug: string; dateTime: string; location: string; coverImage?: string}[]>([]);
   const [eventImportStatus, setEventImportStatus] = useState("");
+  const [guestListEventId, setGuestListEventId] = useState<string | null>(null);
+  const [guestList, setGuestList] = useState<Rsvp[]>([]);
+  const [guestListHeadcount, setGuestListHeadcount] = useState(0);
+  const [guestListLoading, setGuestListLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>(
@@ -373,6 +378,53 @@ function AdminContent() {
     }
   };
 
+  const toggleGuestList = async (eventId: string) => {
+    if (guestListEventId === eventId) {
+      setGuestListEventId(null);
+      setGuestList([]);
+      return;
+    }
+    setGuestListEventId(eventId);
+    setGuestListLoading(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp`);
+      if (res.ok) {
+        const data = await res.json();
+        setGuestList(data.rsvps || []);
+        setGuestListHeadcount(data.totalHeadcount || 0);
+      }
+    } catch {
+      console.error("Failed to fetch guest list");
+    } finally {
+      setGuestListLoading(false);
+    }
+  };
+
+  const handleDeleteRsvp = async (eventId: string, rsvpId: number) => {
+    if (!confirm("Remove this RSVP?")) return;
+    try {
+      const res = await fetch(`/api/events/${eventId}/rsvp`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rsvpId }),
+      });
+      if (res.ok) {
+        setGuestList((prev) => prev.filter((r) => r.id !== rsvpId));
+      }
+    } catch {
+      alert("Failed to remove RSVP");
+    }
+  };
+
+  const copyGuestListEmails = () => {
+    const emails = guestList
+      .filter((r) => r.status === "going" || r.status === "maybe")
+      .map((r) => r.email)
+      .join(", ");
+    navigator.clipboard.writeText(emails);
+    alert("Emails copied to clipboard!");
+  };
+
   const handleDeleteAlbum = async (id: string, title: string) => {
     if (!confirm(`Delete "${title}"? This cannot be undone.`)) return;
     try {
@@ -685,46 +737,148 @@ function AdminContent() {
                     {events.map((event) => (
                       <div
                         key={event.id}
-                        className="flex items-center justify-between p-4 border border-black/10 rounded-lg hover:border-black/20 transition-colors"
+                        className="border border-black/10 rounded-lg hover:border-black/20 transition-colors"
                       >
-                        <div className="min-w-0 flex-1 mr-4">
-                          <h3 className="text-base font-medium truncate">
-                            {event.title}
-                          </h3>
-                          <p className="text-sm text-black/40 mt-0.5">
-                            {new Date(event.createdAt).toLocaleDateString(
-                              "en-US",
-                              { month: "short", day: "numeric", year: "numeric" }
+                        <div className="flex items-center justify-between p-4">
+                          <div className="min-w-0 flex-1 mr-4">
+                            <h3 className="text-base font-medium truncate">
+                              {event.title}
+                              {event.rsvpEnabled && (
+                                <span className="ml-2 text-xs font-normal text-black/40 bg-black/5 px-1.5 py-0.5 rounded">
+                                  RSVP
+                                </span>
+                              )}
+                            </h3>
+                            <p className="text-sm text-black/40 mt-0.5">
+                              {new Date(event.createdAt).toLocaleDateString(
+                                "en-US",
+                                { month: "short", day: "numeric", year: "numeric" }
+                              )}
+                              {event.excerpt && (
+                                <span className="ml-2">
+                                  &middot;{" "}
+                                  {event.excerpt.slice(0, 60)}
+                                  {event.excerpt.length > 60 ? "..." : ""}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            {event.rsvpEnabled && (
+                              <button
+                                onClick={() => toggleGuestList(event.id)}
+                                className={`px-3 py-1.5 text-sm border rounded transition-colors ${
+                                  guestListEventId === event.id
+                                    ? "border-black bg-black text-white"
+                                    : "border-black/20 hover:bg-black/5"
+                                }`}
+                              >
+                                Guest List
+                              </button>
                             )}
-                            {event.excerpt && (
-                              <span className="ml-2">
-                                &middot;{" "}
-                                {event.excerpt.slice(0, 60)}
-                                {event.excerpt.length > 60 ? "..." : ""}
-                              </span>
+                            <button
+                              onClick={() =>
+                                router.push(
+                                  `/admin/events/edit/${event.id}`
+                                )
+                              }
+                              className="px-3 py-1.5 text-sm border border-black/20 rounded hover:bg-black/5 transition-colors"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDeleteEvent(event.id, event.title)
+                              }
+                              className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Guest List Panel */}
+                        {guestListEventId === event.id && (
+                          <div className="border-t border-black/10 p-4">
+                            {guestListLoading ? (
+                              <p className="text-sm text-black/40">Loading guest list...</p>
+                            ) : guestList.length === 0 ? (
+                              <p className="text-sm text-black/40">No RSVPs yet</p>
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-between mb-3">
+                                  <p className="text-sm text-black/60">
+                                    <span className="font-medium">{guestList.length}</span> RSVP{guestList.length !== 1 ? "s" : ""}
+                                    {" "}&middot;{" "}
+                                    <span className="font-medium">{guestListHeadcount}</span> total headcount
+                                  </p>
+                                  <button
+                                    onClick={copyGuestListEmails}
+                                    className="px-3 py-1 text-xs border border-black/20 rounded hover:bg-black/5 transition-colors"
+                                  >
+                                    Copy Emails
+                                  </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="text-left text-black/40 text-xs uppercase tracking-wider">
+                                        <th className="pb-2 pr-4 font-medium">Name</th>
+                                        <th className="pb-2 pr-4 font-medium">Email</th>
+                                        <th className="pb-2 pr-4 font-medium">Status</th>
+                                        <th className="pb-2 pr-4 font-medium">+</th>
+                                        <th className="pb-2 pr-4 font-medium">Note</th>
+                                        <th className="pb-2 font-medium">Date</th>
+                                        <th className="pb-2"></th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-black/5">
+                                      {guestList.map((rsvp) => (
+                                        <tr key={rsvp.id}>
+                                          <td className="py-2 pr-4">{rsvp.name}</td>
+                                          <td className="py-2 pr-4 text-black/60">{rsvp.email}</td>
+                                          <td className="py-2 pr-4">
+                                            <span
+                                              className={`inline-block px-1.5 py-0.5 rounded text-xs ${
+                                                rsvp.status === "going"
+                                                  ? "bg-green-50 text-green-700"
+                                                  : rsvp.status === "maybe"
+                                                    ? "bg-yellow-50 text-yellow-700"
+                                                    : "bg-red-50 text-red-700"
+                                              }`}
+                                            >
+                                              {rsvp.status === "not_going" ? "not going" : rsvp.status}
+                                            </span>
+                                          </td>
+                                          <td className="py-2 pr-4 text-black/60">
+                                            {rsvp.plusOne > 0 ? `+${rsvp.plusOne}` : "-"}
+                                          </td>
+                                          <td className="py-2 pr-4 text-black/50 max-w-[200px] truncate">
+                                            {rsvp.note || "-"}
+                                          </td>
+                                          <td className="py-2 pr-4 text-black/40 text-xs whitespace-nowrap">
+                                            {new Date(rsvp.createdAt).toLocaleDateString("en-US", {
+                                              month: "short",
+                                              day: "numeric",
+                                            })}
+                                          </td>
+                                          <td className="py-2">
+                                            <button
+                                              onClick={() => handleDeleteRsvp(event.id, rsvp.id)}
+                                              className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                                            >
+                                              Remove
+                                            </button>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </>
                             )}
-                          </p>
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          <button
-                            onClick={() =>
-                              router.push(
-                                `/admin/events/edit/${event.id}`
-                              )
-                            }
-                            className="px-3 py-1.5 text-sm border border-black/20 rounded hover:bg-black/5 transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteEvent(event.id, event.title)
-                            }
-                            className="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded hover:bg-red-50 transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

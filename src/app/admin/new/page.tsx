@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { slugify } from "@/lib/posts";
+import { slugify } from "@/lib/utils";
 
 const TiptapEditor = dynamic(() => import("@/components/TiptapEditor"), {
   ssr: false,

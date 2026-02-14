@@ -252,6 +252,7 @@ export async function POST() {
         excerpt: scraped.excerpt,
         coverImage: coverImageUrl,
         content,
+        rsvpEnabled: false,
         createdAt,
         updatedAt: createdAt,
       };

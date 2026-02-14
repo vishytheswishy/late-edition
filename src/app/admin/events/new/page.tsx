@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { slugify } from "@/lib/posts";
+import { slugify } from "@/lib/utils";
 
 const TiptapEditor = dynamic(() => import("@/components/TiptapEditor"), {
   ssr: false,
@@ -20,6 +20,7 @@ export default function NewEventPage() {
   const [excerpt, setExcerpt] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [content, setContent] = useState("");
+  const [rsvpEnabled, setRsvpEnabled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
@@ -73,6 +74,7 @@ export default function NewEventPage() {
           excerpt: excerpt.trim(),
           coverImage,
           content,
+          rsvpEnabled,
         }),
       });
 
@@ -192,6 +194,25 @@ export default function NewEventPage() {
           <div>
             <label className="block text-sm font-medium mb-2">Content</label>
             <TiptapEditor content={content} onChange={setContent} />
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={rsvpEnabled}
+              onClick={() => setRsvpEnabled(!rsvpEnabled)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${
+                rsvpEnabled ? "bg-black" : "bg-black/20"
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  rsvpEnabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+            <label className="text-sm font-medium">Enable RSVP</label>
           </div>
 
           {error && <p className="text-red-600 text-sm">{error}</p>}

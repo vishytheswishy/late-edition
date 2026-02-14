@@ -1,5 +1,5 @@
 /**
- * Shared cover texture generator used by both BookShelf and PhotoBook
+ * Shared cover texture generator used by book components
  * so that both display the exact same cover visual.
  */
 
@@ -23,7 +23,8 @@ export async function createCoverCanvas(
   title: string,
   coverUrl: string | null,
   width: number,
-  height: number
+  height: number,
+  date?: string | null
 ): Promise<HTMLCanvasElement> {
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -33,6 +34,23 @@ export async function createCoverCanvas(
   // Dark background
   ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0, 0, width, height);
+
+  // Date text at the top
+  if (date) {
+    const d = new Date(date);
+    const formatted = d.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+    const dateFontSize = Math.round(24 * (width / 1024));
+    ctx.fillStyle = "#f5f0e860";
+    ctx.font = `300 ${dateFontSize}px system-ui, -apple-system, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    ctx.letterSpacing = `${Math.round(3 * (width / 1024))}px`;
+    ctx.fillText(formatted.toUpperCase(), width / 2, height * 0.06);
+    ctx.letterSpacing = "0px";
+  }
 
   // Cover image
   if (coverUrl) {
