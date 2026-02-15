@@ -268,16 +268,15 @@ export default function BookPile({
   });
 
   const responsiveScale = useMemo(() => {
-    // Use both width and height to fill the viewport
-    const widthScale = viewport.width / 2.8;
-    const heightScale = viewport.height / 2.2;
-    const scale = Math.min(widthScale, heightScale);
-    return Math.max(0.8, Math.min(2.0, scale));
+    const aspect = viewport.width / viewport.height;
+    const isMobile = aspect < 1;
+    const scale = Math.min(viewport.width / (isMobile ? 2.0 : 3.2), viewport.height / 2.2);
+    return Math.max(0.6, Math.min(isMobile ? 1.8 : 1.2, scale));
   }, [viewport.width, viewport.height]);
 
-  // Position the pile group above the lookAt so it stays centered in frame.
+  // Position the pile group centered in the camera view.
   const groupY = useMemo(() => {
-    return CAMERA_LOOK_AT.y + 0.3;
+    return CAMERA_LOOK_AT.y + 0.4;
   }, []);
 
   return (

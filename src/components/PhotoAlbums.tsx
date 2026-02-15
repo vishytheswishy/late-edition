@@ -65,7 +65,7 @@ function BrowsingOverlay({
   const total = albums.length;
 
   return (
-    <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end pb-4 md:pb-6">
+    <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end pb-16 md:pb-10">
       <div className="pointer-events-auto mx-auto max-w-lg w-[calc(100%-2rem)] rounded-2xl bg-white/40 backdrop-blur-2xl border border-white/50 shadow-[0_2px_20px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.04] px-4 py-4 md:py-5">
         <div className="flex flex-col items-center gap-3">
           <h2 className="text-sm md:text-base font-light tracking-tight text-black/80 text-center truncate w-full">
@@ -536,7 +536,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
 
   return (
     <div className="fixed inset-0 z-40 overflow-hidden bg-[#ffffff]">
-      <div className="absolute inset-0 z-0">
+      <div className={`absolute inset-x-0 bottom-0 z-0 ${showPile ? "-top-[20vh]" : "top-0"}`}>
         <Canvas
           shadows
           camera={{
