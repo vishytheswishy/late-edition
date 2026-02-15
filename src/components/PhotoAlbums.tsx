@@ -1,9 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { Environment } from "@react-three/drei";
 import {
-  Suspense,
   useCallback,
   useEffect,
   useRef,
@@ -124,7 +122,7 @@ function MobileAlbumBrowser({
   onSelect: (index: number) => void;
 }) {
   return (
-    <div className="min-h-screen bg-[#fafafa] pt-16 pb-8 px-4">
+    <div className="min-h-screen bg-[#ffffff] pt-16 pb-8 px-4">
       <h1 className="text-xs uppercase tracking-[0.2em] text-black/40 text-center mb-6">
         Photo Albums
       </h1>
@@ -167,30 +165,26 @@ function MobileAlbumBrowser({
 function SceneFixtures() {
   return (
     <>
-      <Suspense fallback={null}>
-        <Environment preset="apartment" />
-      </Suspense>
+      <color attach="background" args={["#ffffff"]} />
+
+      <ambientLight intensity={1.8} />
 
       <directionalLight
         position={[2, 5, 2]}
-        intensity={1.3}
+        intensity={1.5}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
         shadow-bias={-0.0001}
       />
-      <ambientLight intensity={0.35} />
 
-      {/* Desk surface */}
-      <mesh position={[0, -1.8, -0.2]} receiveShadow castShadow>
-        <boxGeometry args={[8, 0.08, 6]} />
-        <meshStandardMaterial color="#b08960" roughness={0.8} metalness={0.05} />
-      </mesh>
+      {/* Soft fill from the opposite side */}
+      <directionalLight position={[-3, 3, -1]} intensity={0.6} />
 
       {/* Shadow catcher */}
-      <mesh position={[0, -1.85, 0]} rotation-x={-Math.PI / 2} receiveShadow>
-        <planeGeometry args={[20, 20]} />
-        <shadowMaterial transparent opacity={0.12} />
+      <mesh position={[0, -1.76, 0]} rotation-x={-Math.PI / 2} receiveShadow>
+        <planeGeometry args={[40, 40]} />
+        <shadowMaterial transparent opacity={0.1} />
       </mesh>
     </>
   );
@@ -414,7 +408,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
   // ─── Loading state ───
   if (state === "loading") {
     return (
-      <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center gap-8">
+      <div className="min-h-screen bg-[#ffffff] flex flex-col items-center justify-center gap-8">
         <style>{`
           @keyframes bookOpen {
             0%, 10%, 90%, 100% { transform: rotateY(0deg); }
@@ -502,7 +496,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
   // ─── No albums ───
   if (albums.length === 0) {
     return (
-      <div className="min-h-screen bg-[#fafafa] flex items-center justify-center">
+      <div className="min-h-screen bg-[#ffffff] flex items-center justify-center">
         <p className="text-sm text-black/40 font-light">No albums yet.</p>
       </div>
     );
@@ -541,7 +535,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
   const isReading = showBook;
 
   return (
-    <div className="fixed inset-0 z-40 overflow-hidden bg-[#fafafa]">
+    <div className="fixed inset-0 z-40 overflow-hidden bg-[#ffffff]">
       <div className="absolute inset-0 z-0">
         <Canvas
           shadows
@@ -549,7 +543,7 @@ export default function PhotoAlbums({ albums }: { albums: Album[] }) {
             position: [CAMERA_POS.x, CAMERA_POS.y, CAMERA_POS.z],
             fov: 40,
           }}
-          style={{ background: "#fafafa" }}
+          style={{ background: "#ffffff" }}
         >
           {/* Persistent scene: desk, lights, env */}
           <SceneFixtures />

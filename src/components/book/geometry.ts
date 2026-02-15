@@ -43,8 +43,8 @@ pageGeometry.setAttribute(
 export const whiteColor = new Color("white");
 
 export const pageMaterials = [
-  new MeshStandardMaterial({ color: whiteColor, roughness: 0.9 }),
+  new MeshStandardMaterial({ color: whiteColor, roughness: 0.5 }),
   new MeshStandardMaterial({ color: "#222", roughness: 0.9 }),
-  new MeshStandardMaterial({ color: whiteColor, roughness: 0.9 }),
-  new MeshStandardMaterial({ color: whiteColor, roughness: 0.9 }),
+  new MeshStandardMaterial({ color: whiteColor, roughness: 0.5 }),
+  new MeshStandardMaterial({ color: whiteColor, roughness: 0.5 }),
 ];

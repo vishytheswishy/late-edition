@@ -6,7 +6,7 @@ import type { Album } from "@/lib/albums";
 const PhotoAlbums = dynamic(() => import("@/components/PhotoAlbums"), {
   ssr: false,
   loading: () => (
-    <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center gap-6">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-6">
       <style>{`
         @keyframes bookOpenSimple {
           0%, 10%, 90%, 100% { transform: rotateY(0deg); }

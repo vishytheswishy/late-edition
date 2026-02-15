@@ -9,14 +9,14 @@ import type { AlbumPhoto } from "@/lib/albums";
 /* ------------------------------------------------------------------ */
 
 export function getGridLayouts(count: number): GridCell[] {
-  const pad = 50;
-  const gap = 24;
+  const pad = 100;
+  const gap = 48;
   const areaW = CANVAS_W - pad * 2;
   const areaH = CANVAS_H - pad * 2;
   const cells: GridCell[] = [];
 
   if (count === 1) {
-    const inset = 40;
+    const inset = 80;
     cells.push({
       x: pad + inset,
       y: pad + inset,
@@ -82,11 +82,11 @@ export async function createGridTexture(
   canvas.height = CANVAS_H;
   const ctx = canvas.getContext("2d")!;
 
-  ctx.fillStyle = "#f8f5f0";
+  ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
   const cells = getGridLayouts(photos.length);
-  const borderW = 6;
+  const borderW = 12;
 
   for (let i = 0; i < photos.length && i < cells.length; i++) {
     const cell = cells[i];
@@ -94,11 +94,11 @@ export async function createGridTexture(
       const img = await loadImage(photos[i].url);
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.12)";
-      ctx.shadowBlur = 10;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
+      ctx.shadowBlur = 20;
+      ctx.shadowOffsetX = 4;
+      ctx.shadowOffsetY = 4;
 
-      const captionSpace = photos[i].caption ? 32 : 0;
+      const captionSpace = photos[i].caption ? 64 : 0;
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(
         cell.x - borderW,
@@ -122,12 +122,12 @@ export async function createGridTexture(
 
       if (photos[i].caption) {
         ctx.fillStyle = "#555";
-        ctx.font = "italic 16px Georgia, serif";
+        ctx.font = "italic 32px Georgia, serif";
         ctx.textAlign = "center";
         ctx.fillText(
           photos[i].caption.slice(0, 50),
           cell.x + cell.w / 2,
-          cell.y + cell.h + borderW + 20,
+          cell.y + cell.h + borderW + 40,
           cell.w
         );
       }
@@ -140,7 +140,7 @@ export async function createGridTexture(
     }
   }
 
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
   const tex = new CanvasTexture(canvas);
   tex.colorSpace = SRGBColorSpace;
   return { tex, dataUrl };
@@ -152,7 +152,7 @@ export async function createCoverTexture(
   date?: string | null
 ): Promise<{ tex: CanvasTexture; dataUrl: string }> {
   const canvas = await createCoverCanvas(title, coverUrl, CANVAS_W, CANVAS_H, date);
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
   const tex = new CanvasTexture(canvas);
   tex.colorSpace = SRGBColorSpace;
   return { tex, dataUrl };
@@ -169,10 +169,10 @@ export function createBackCoverTexture(title: string): {
   ctx.fillStyle = "#1a1a1a";
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   ctx.fillStyle = "#f5f0e860";
-  ctx.font = "200 28px system-ui, -apple-system, sans-serif";
+  ctx.font = "200 56px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(title, CANVAS_W / 2, CANVAS_H / 2);
-  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
   const tex = new CanvasTexture(canvas);
   tex.colorSpace = SRGBColorSpace;
   return { tex, dataUrl };
@@ -271,14 +271,14 @@ export function groupPhotosIntoPages(
     blankCanvas.width = CANVAS_W;
     blankCanvas.height = CANVAS_H;
     const ctx = blankCanvas.getContext("2d")!;
-    ctx.fillStyle = "#f8f5f0";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     const blankTex = new CanvasTexture(blankCanvas);
     blankTex.colorSpace = SRGBColorSpace;
     faces.splice(faces.length - 1, 0, {
       texPromise: Promise.resolve({
         tex: blankTex,
-        dataUrl: blankCanvas.toDataURL("image/jpeg", 0.85),
+        dataUrl: blankCanvas.toDataURL("image/jpeg", 0.92),
       }),
       photos: [],
       cells: [],

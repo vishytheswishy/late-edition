@@ -268,14 +268,16 @@ export default function BookPile({
   });
 
   const responsiveScale = useMemo(() => {
-    const base = 1.1;
-    const scale = Math.min(base, viewport.width / 4.0);
-    return Math.max(0.6, scale);
-  }, [viewport.width]);
+    // Use both width and height to fill the viewport
+    const widthScale = viewport.width / 2.8;
+    const heightScale = viewport.height / 2.2;
+    const scale = Math.min(widthScale, heightScale);
+    return Math.max(0.8, Math.min(2.0, scale));
+  }, [viewport.width, viewport.height]);
 
-  // Position the pile group above the lookAt so it sits higher in frame.
+  // Position the pile group above the lookAt so it stays centered in frame.
   const groupY = useMemo(() => {
-    return CAMERA_LOOK_AT.y + 0.4;
+    return CAMERA_LOOK_AT.y + 0.3;
   }, []);
 
   return (

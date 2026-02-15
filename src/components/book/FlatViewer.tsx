@@ -99,7 +99,7 @@ export default function FlatPageViewer({
   );
 
   return (
-    <div className="fixed inset-0 z-40 bg-[#fafafa] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-40 bg-white flex flex-col overflow-hidden">
       <div
         className="flex-1 flex items-center justify-center px-4 pt-16 md:pt-[4.5rem]"
         onTouchStart={handleTouchStart}
@@ -111,7 +111,7 @@ export default function FlatPageViewer({
             ref={imgRef}
             src={faces[faceIndex].dataUrl}
             alt={faces[faceIndex].label}
-            className="max-h-[60vh] md:max-h-[70vh] w-auto object-contain rounded-sm shadow-lg cursor-pointer"
+            className="max-h-[75vh] md:max-h-[70vh] w-auto object-contain rounded-sm shadow-lg cursor-pointer"
             draggable={false}
             onClick={handleImgClick}
           />

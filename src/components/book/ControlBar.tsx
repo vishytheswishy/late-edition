@@ -46,19 +46,51 @@ export function ControlBar({
         )}
       </div>
 
-      {/* Row 2: prev arrow, page pills, next arrow — animated expand */}
+      {/* Row 2: navigation — animated expand */}
       <div
         className={`overflow-hidden transition-all duration-300 ease-out ${
           showNav ? "max-h-24 opacity-100 mt-2.5" : "max-h-0 opacity-0 mt-0"
         }`}
       >
-        <div className="flex items-center gap-2">
+        {/* Mobile: compact prev / label / next */}
+        <div className="flex md:hidden items-center gap-2">
           <button
             onClick={() => onSetPage(page - 1)}
             disabled={page <= 0}
-            className="shrink-0 w-10 h-10 md:w-8 md:h-8 rounded-full border border-white/30 bg-white/20 flex items-center justify-center hover:bg-white/40 active:bg-white/50 transition-all disabled:opacity-20 disabled:cursor-default"
+            className="shrink-0 w-10 h-10 rounded-full border border-white/30 bg-white/20 flex items-center justify-center hover:bg-white/40 active:bg-white/50 transition-all disabled:opacity-20 disabled:cursor-default"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50 md:w-[14px] md:h-[14px]">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+
+          <p className="flex-1 text-center text-xs uppercase tracking-wider text-black/50">
+            {page === 0
+              ? "Cover"
+              : page === totalPages
+                ? "Back"
+                : `Page ${page} of ${totalPages - 1}`}
+          </p>
+
+          <button
+            onClick={() => onSetPage(page + 1)}
+            disabled={page >= totalPages}
+            className="shrink-0 w-10 h-10 rounded-full border border-white/30 bg-white/20 flex items-center justify-center hover:bg-white/40 active:bg-white/50 transition-all disabled:opacity-20 disabled:cursor-default"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Desktop: prev arrow, page pills, next arrow */}
+        <div className="hidden md:flex items-center gap-2">
+          <button
+            onClick={() => onSetPage(page - 1)}
+            disabled={page <= 0}
+            className="shrink-0 w-8 h-8 rounded-full border border-white/30 bg-white/20 flex items-center justify-center hover:bg-white/40 active:bg-white/50 transition-all disabled:opacity-20 disabled:cursor-default"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
@@ -68,7 +100,7 @@ export function ControlBar({
               {Array.from({ length: totalPages + 1 }).map((_, index) => (
                 <button
                   key={index}
-                  className={`shrink-0 rounded-full px-3 py-1.5 md:px-2.5 md:py-1 text-xs md:text-[10px] uppercase tracking-wider border transition-all duration-300 ${
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-wider border transition-all duration-300 ${
                     index === page
                       ? "bg-black text-white border-black"
                       : "bg-white/30 text-black/50 border-white/40 hover:border-black/30"
@@ -88,9 +120,9 @@ export function ControlBar({
           <button
             onClick={() => onSetPage(page + 1)}
             disabled={page >= totalPages}
-            className="shrink-0 w-10 h-10 md:w-8 md:h-8 rounded-full border border-white/30 bg-white/20 flex items-center justify-center hover:bg-white/40 active:bg-white/50 transition-all disabled:opacity-20 disabled:cursor-default"
+            className="shrink-0 w-8 h-8 rounded-full border border-white/30 bg-white/20 flex items-center justify-center hover:bg-white/40 active:bg-white/50 transition-all disabled:opacity-20 disabled:cursor-default"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50 md:w-[14px] md:h-[14px]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-black/50">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>

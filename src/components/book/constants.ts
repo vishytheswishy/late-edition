@@ -11,8 +11,8 @@ export const PAGE_SEGMENTS = 30;
 export const SEGMENT_WIDTH = PAGE_WIDTH / PAGE_SEGMENTS;
 
 export const PHOTOS_PER_PAGE = 4;
-export const CANVAS_W = 1024;
-export const CANVAS_H = 1365;
+export const CANVAS_W = 2048;
+export const CANVAS_H = 2730;
 
 export const CAMERA_POS = { x: 0, y: 3.5, z: 3.3 };
 export const CAMERA_LOOK_AT = { x: 0, y: -0.5, z: -0.6 };
