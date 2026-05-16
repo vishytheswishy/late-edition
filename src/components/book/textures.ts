@@ -178,19 +178,24 @@ export function createBackCoverTexture(title: string): {
   return { tex, dataUrl };
 }
 
+let _roughnessTexture: CanvasTexture | null = null;
 export function createRoughnessTexture(): CanvasTexture {
+  if (_roughnessTexture) return _roughnessTexture;
   const canvas = document.createElement("canvas");
   canvas.width = 256;
   canvas.height = 256;
   const ctx = canvas.getContext("2d")!;
-  for (let y = 0; y < 256; y++) {
-    for (let x = 0; x < 256; x++) {
-      const v = 120 + Math.random() * 40;
-      ctx.fillStyle = `rgb(${v},${v},${v})`;
-      ctx.fillRect(x, y, 1, 1);
-    }
+  const img = ctx.createImageData(256, 256);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = 120 + Math.floor(Math.random() * 40);
+    img.data[i] = v;
+    img.data[i + 1] = v;
+    img.data[i + 2] = v;
+    img.data[i + 3] = 255;
   }
-  return new CanvasTexture(canvas);
+  ctx.putImageData(img, 0, 0);
+  _roughnessTexture = new CanvasTexture(canvas);
+  return _roughnessTexture;
 }
 
 /* ------------------------------------------------------------------ */

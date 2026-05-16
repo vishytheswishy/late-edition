@@ -268,19 +268,15 @@ export default function BookPile({
   });
 
   const responsiveScale = useMemo(() => {
-    const aspect = viewport.width / viewport.height;
-    const isMobile = aspect < 1;
-    const scale = Math.min(viewport.width / (isMobile ? 2.0 : 3.2), viewport.height / 2.2);
-    return Math.max(0.6, Math.min(isMobile ? 1.8 : 1.2, scale));
+    const isMobile = viewport.width < viewport.height;
+    const widthDivisor = isMobile ? 2.0 : 3.2;
+    const maxScale = isMobile ? 1.8 : 1.2;
+    const scale = Math.min(viewport.width / widthDivisor, viewport.height / 2.2);
+    return Math.max(0.6, Math.min(maxScale, scale));
   }, [viewport.width, viewport.height]);
 
-  // Position the pile group centered in the camera view.
-  const groupY = useMemo(() => {
-    return CAMERA_LOOK_AT.y + 0.4;
-  }, []);
-
   return (
-    <group ref={groupRef} scale={responsiveScale} position-y={groupY}>
+    <group ref={groupRef} scale={responsiveScale} position-y={CAMERA_LOOK_AT.y + 0.4}>
       {albums.map((album, i) => (
         <PileBook
           key={album.slug}

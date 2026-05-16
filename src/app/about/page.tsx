@@ -2,6 +2,8 @@ import Image from "next/image";
 import { getStaffMembers } from "@/lib/staff";
 import StaffSection from "@/components/StaffSection";
 
+export const revalidate = 300;
+
 export default async function AboutPage() {
   const members = await getStaffMembers();
 

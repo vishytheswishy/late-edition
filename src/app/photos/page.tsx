@@ -1,7 +1,7 @@
 import { getAllAlbumsWithPhotos } from "@/lib/albums";
 import PhotoAlbumsClient from "./PhotoAlbumsClient";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function PhotosPage() {
   const albums = await getAllAlbumsWithPhotos();

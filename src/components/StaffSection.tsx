@@ -45,10 +45,13 @@ function MemberSlideshow({ member }: { member: StaffMember }) {
     setCurrent((prev) => (prev - 1 + images.length) % images.length);
   }, [images.length]);
 
-  // Auto-advance every 4 seconds
+  // Auto-advance every 4 seconds; pause when tab hidden so we don't burn CPU off-screen
   useEffect(() => {
     if (images.length <= 1 || paused) return;
-    const timer = setInterval(advance, 4000);
+    const tick = () => {
+      if (document.visibilityState === "visible") advance();
+    };
+    const timer = setInterval(tick, 4000);
     return () => clearInterval(timer);
   }, [images.length, paused, advance]);
 

@@ -1,7 +1,7 @@
 import { getEventIndex } from "@/lib/events";
 import EventsGallery from "@/components/EventsGallery";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function EventsPage() {
   const events = await getEventIndex();

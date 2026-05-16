@@ -74,7 +74,9 @@ export async function POST(req: NextRequest) {
     }
   } catch (error) {
     console.error("Cart API error:", error);
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const raw = error instanceof Error ? error.message : "";
+    const leaksConfig = raw.startsWith("Shopify env missing");
+    const message = !raw || leaksConfig ? "Service unavailable" : raw;
+    return NextResponse.json({ error: message }, { status: leaksConfig ? 503 : 500 });
   }
 }

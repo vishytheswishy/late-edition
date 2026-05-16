@@ -1,7 +1,7 @@
 import { getPostIndex } from "@/lib/posts";
 import ArticlesGallery from "@/components/ArticlesGallery";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export default async function ArticlesPage() {
   const posts = await getPostIndex();

@@ -78,9 +78,6 @@ export async function getAlbumIndex(): Promise<AlbumMeta[]> {
   }
 }
 
-/** No-op: index is now implicit in the albums table */
-export async function saveAlbumIndex(_albums: AlbumMeta[]): Promise<void> {}
-
 export async function getAlbum(id: string): Promise<Album | null> {
   try {
     const albumRows = await db
