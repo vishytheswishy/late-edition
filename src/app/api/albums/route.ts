@@ -6,6 +6,7 @@ import {
   saveAlbum,
   type Album,
 } from "@/lib/albums";
+import { assertImageUrl, NonBlobUrlError } from "@/lib/imageGuard";
 
 export async function GET(request: Request) {
   try {
@@ -49,6 +50,18 @@ export async function POST(request: Request) {
     const id = generateId();
     const now = new Date().toISOString();
     const photoList = Array.isArray(photos) ? photos : [];
+
+    try {
+      assertImageUrl(coverImage, "coverImage");
+      for (let i = 0; i < photoList.length; i++) {
+        assertImageUrl(photoList[i]?.url, `photos[${i}].url`);
+      }
+    } catch (err) {
+      if (err instanceof NonBlobUrlError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
+    }
 
     const album: Album = {
       id,
