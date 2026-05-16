@@ -1,5 +1,6 @@
 import { getEventIndex } from "@/lib/events";
 import EventsGallery from "@/components/EventsGallery";
+import EventCountdown from "@/components/EventCountdown";
 
 export const revalidate = 60;
 
@@ -11,5 +12,29 @@ export default async function EventsPage() {
     return bDate - aDate;
   });
 
-  return <EventsGallery events={sorted} />;
+  // Pick the soonest future event (with a real eventDate). Fall back to the
+  // most recent event so the timer always has something to render.
+  const now = Date.now();
+  const withDate = sorted.filter((e) => e.eventDate);
+  const upcoming = withDate
+    .filter((e) => new Date(e.eventDate!).getTime() > now)
+    .sort(
+      (a, b) =>
+        new Date(a.eventDate!).getTime() - new Date(b.eventDate!).getTime(),
+    )[0];
+  const featured = upcoming ?? withDate[0];
+
+  return (
+    <div className="pt-16 md:pt-20">
+      {featured?.eventDate && (
+        <div className="border-b border-black/10 bg-white">
+          <EventCountdown
+            targetISO={featured.eventDate}
+            eventTitle={featured.title}
+          />
+        </div>
+      )}
+      <EventsGallery events={sorted} />
+    </div>
+  );
 }

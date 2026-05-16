@@ -135,7 +135,7 @@ export default function Navbar() {
           YouTube
         </a>
         <a
-          href="https://www.tiktok.com/@lateedition.mag"
+          href="https://www.tiktok.com/@late.edition"
           target="_blank"
           rel="noopener noreferrer"
           className="block px-3 py-2 text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50"
@@ -305,7 +305,7 @@ export default function Navbar() {
           <div className="flex items-center justify-center gap-8 py-8 border-t border-black/10">
             <a href="https://www.instagram.com/lateedition.mag/?hl=en" target="_blank" rel="noopener noreferrer" className="text-[10px] uppercase tracking-[0.15em] text-black/50 transition-opacity hover:opacity-50">Instagram</a>
             <a href="https://www.youtube.com/@LateEditionLive" target="_blank" rel="noopener noreferrer" className="text-[10px] uppercase tracking-[0.15em] text-black/50 transition-opacity hover:opacity-50">YouTube</a>
-            <a href="https://www.tiktok.com/@lateedition.mag" target="_blank" rel="noopener noreferrer" className="text-[10px] uppercase tracking-[0.15em] text-black/50 transition-opacity hover:opacity-50">TikTok</a>
+            <a href="https://www.tiktok.com/@late.edition" target="_blank" rel="noopener noreferrer" className="text-[10px] uppercase tracking-[0.15em] text-black/50 transition-opacity hover:opacity-50">TikTok</a>
           </div>
         </div>,
         document.body

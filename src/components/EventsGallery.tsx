@@ -33,7 +33,7 @@ export default function EventsGallery({ events }: EventsGalleryProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
-    <div className="min-h-screen bg-white pt-16 md:pt-20">
+    <div className="min-h-screen bg-white">
       {/* ── Hero ── */}
       <section className="relative w-full border-b border-black/10">
         <div className="container mx-auto px-4">
