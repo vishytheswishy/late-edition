@@ -40,6 +40,7 @@ export default function MusicPage() {
     activeMixId,
     activeMix,
     coverArt,
+    artworkByMixId,
     mixesList,
     staffPicksList,
     swapKey,
@@ -487,6 +488,7 @@ export default function MusicPage() {
                 {mixesList.map((mix, index) => {
                   const isActive = activeMixId === mix.id;
                   const isPlaying = isActive && state.isPlaying;
+                  const thumb = artworkByMixId[mix.id];
 
                   return (
                     <button
@@ -496,6 +498,17 @@ export default function MusicPage() {
                         isActive ? "bg-gray-50" : "hover:bg-gray-50/50"
                       }`}
                     >
+                      <div className="w-9 h-9 flex-shrink-0 rounded overflow-hidden bg-black/[0.05]">
+                        {thumb && (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img
+                            src={thumb}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        )}
+                      </div>
                       <div className="w-6 flex-shrink-0 flex items-center justify-center">
                         {isPlaying ? (
                           <div className="flex items-end gap-[2px] h-3.5">

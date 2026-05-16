@@ -150,7 +150,7 @@ export default function EventsGallery({ events }: EventsGalleryProps) {
                               <img
                                 src={event.coverImage}
                                 alt={event.title}
-                                className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                                className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                               />
 
                               {/* Hover overlay */}
@@ -229,7 +229,7 @@ export default function EventsGallery({ events }: EventsGalleryProps) {
                         {/* Event info */}
                         <div className="pt-4 pb-2">
                           <p className="text-[10px] uppercase tracking-[0.15em] text-black/40 mb-1.5">
-                            {new Date(event.createdAt).toLocaleDateString(
+                            {new Date(event.eventDate ?? event.createdAt).toLocaleDateString(
                               "en-US",
                               {
                                 month: "long",

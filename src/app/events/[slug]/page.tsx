@@ -33,7 +33,7 @@ export default async function EventPage({
         <article className="mt-6">
           <header className="mb-8">
             <time className="text-[10px] text-black/40 uppercase tracking-[0.15em]">
-              {new Date(event.createdAt).toLocaleDateString("en-US", {
+              {new Date(event.eventDate ?? event.createdAt).toLocaleDateString("en-US", {
                 month: "long",
                 day: "numeric",
                 year: "numeric",

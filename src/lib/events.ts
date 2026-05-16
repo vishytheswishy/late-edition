@@ -9,6 +9,7 @@ export interface EventMeta {
   excerpt: string;
   coverImage: string;
   rsvpEnabled: boolean;
+  eventDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,6 +28,7 @@ export async function getEventIndex(): Promise<EventMeta[]> {
         excerpt: events.excerpt,
         coverImage: events.coverImage,
         rsvpEnabled: events.rsvpEnabled,
+        eventDate: events.eventDate,
         createdAt: events.createdAt,
         updatedAt: events.updatedAt,
       })
@@ -34,6 +36,7 @@ export async function getEventIndex(): Promise<EventMeta[]> {
 
     return rows.map((r) => ({
       ...r,
+      eventDate: r.eventDate ? r.eventDate.toISOString() : null,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     }));
@@ -49,6 +52,7 @@ export async function getEvent(id: string): Promise<Event | null> {
     const r = rows[0];
     return {
       ...r,
+      eventDate: r.eventDate ? r.eventDate.toISOString() : null,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     };
@@ -64,6 +68,7 @@ export async function getEventBySlug(slug: string): Promise<Event | null> {
     const r = rows[0];
     return {
       ...r,
+      eventDate: r.eventDate ? r.eventDate.toISOString() : null,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     };
@@ -73,6 +78,7 @@ export async function getEventBySlug(slug: string): Promise<Event | null> {
 }
 
 export async function saveEvent(event: Event): Promise<void> {
+  const eventDateValue = event.eventDate ? new Date(event.eventDate) : null;
   await db
     .insert(events)
     .values({
@@ -83,6 +89,7 @@ export async function saveEvent(event: Event): Promise<void> {
       coverImage: event.coverImage,
       content: event.content,
       rsvpEnabled: event.rsvpEnabled,
+      eventDate: eventDateValue,
       createdAt: new Date(event.createdAt),
       updatedAt: new Date(event.updatedAt),
     })
@@ -95,6 +102,7 @@ export async function saveEvent(event: Event): Promise<void> {
         coverImage: event.coverImage,
         content: event.content,
         rsvpEnabled: event.rsvpEnabled,
+        eventDate: eventDateValue,
         updatedAt: new Date(event.updatedAt),
       },
     });

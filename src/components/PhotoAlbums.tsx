@@ -138,7 +138,7 @@ function MobileAlbumBrowser({
               <img
                 src={album.coverImage}
                 alt={album.title}
-                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-active:scale-[1.02]"
+                className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-active:scale-[1.02]"
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-black/10" />

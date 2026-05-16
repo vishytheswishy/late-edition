@@ -36,7 +36,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { title, slug, excerpt, coverImage, content, rsvpEnabled } = await request.json();
+    const { title, slug, excerpt, coverImage, content, rsvpEnabled, eventDate } = await request.json();
 
     if (!title || !content) {
       return NextResponse.json(
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       coverImage: coverImage || "",
       content,
       rsvpEnabled: rsvpEnabled ?? false,
+      eventDate: eventDate ?? null,
       createdAt: now,
       updatedAt: now,
     };

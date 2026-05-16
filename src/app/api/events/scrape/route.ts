@@ -253,6 +253,7 @@ export async function POST() {
         coverImage: coverImageUrl,
         content,
         rsvpEnabled: false,
+        eventDate: null,
         createdAt,
         updatedAt: createdAt,
       };

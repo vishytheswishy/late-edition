@@ -5,6 +5,14 @@ import { Canvas, useFrame, useLoader } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 
+if (typeof window !== "undefined") {
+  useLoader.preload(THREE.TextureLoader, [
+    "/cover/front.jpg",
+    "/cover/back.jpg",
+    "/cover/spine.jpg",
+  ]);
+}
+
 // ── Shared constants ──
 const COVER_W = 2;
 const COVER_H = 2.8;
@@ -267,7 +275,7 @@ export default function Magazine3D({
         outputColorSpace: THREE.LinearSRGBColorSpace,
       }}
       camera={{ position: [0, 0, 5], fov: 50 }}
-      style={{ width: "100%", height: "100%" }}
+      style={{ width: "100%", height: "100%", touchAction: "pan-y" }}
     >
       <MagazineScene
         frontCover={frontCover}

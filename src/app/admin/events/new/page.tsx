@@ -21,6 +21,7 @@ export default function NewEventPage() {
   const [coverImage, setCoverImage] = useState("");
   const [content, setContent] = useState("");
   const [rsvpEnabled, setRsvpEnabled] = useState(false);
+  const [eventDate, setEventDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
@@ -75,6 +76,7 @@ export default function NewEventPage() {
           coverImage,
           content,
           rsvpEnabled,
+          eventDate: eventDate ? new Date(eventDate).toISOString() : null,
         }),
       });
 
@@ -194,6 +196,17 @@ export default function NewEventPage() {
           <div>
             <label className="block text-sm font-medium mb-2">Content</label>
             <TiptapEditor content={content} onChange={setContent} />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Event date</label>
+            <input
+              type="datetime-local"
+              value={eventDate}
+              onChange={(e) => setEventDate(e.target.value)}
+              className="w-full px-3 py-2 border border-black/20 rounded-lg text-sm focus:outline-none focus:border-black"
+            />
+            <p className="text-xs text-black/40 mt-1">When the event actually happens (leave blank to fall back to created date).</p>
           </div>
 
           <div className="flex items-center gap-3">

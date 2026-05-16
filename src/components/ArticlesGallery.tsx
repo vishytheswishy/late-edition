@@ -156,7 +156,7 @@ export default function ArticlesGallery({ posts }: ArticlesGalleryProps) {
                           <img
                             src={featured.coverImage}
                             alt={featured.title}
-                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                            className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                           />
 
                           {/* Hover overlay */}
@@ -185,16 +185,6 @@ export default function ArticlesGallery({ posts }: ArticlesGalleryProps) {
 
                     {/* Featured info */}
                     <div className="pt-5 pb-2">
-                      <p className="text-[10px] uppercase tracking-[0.15em] text-black/40 mb-2">
-                        {new Date(featured.createdAt).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "long",
-                            day: "numeric",
-                            year: "numeric",
-                          }
-                        )}
-                      </p>
                       <h2 className="text-2xl md:text-3xl font-normal tracking-tight leading-snug text-black group-hover:text-black/70 transition-colors">
                         {featured.title}
                       </h2>
@@ -234,7 +224,7 @@ export default function ArticlesGallery({ posts }: ArticlesGalleryProps) {
                                 <img
                                   src={post.coverImage}
                                   alt={post.title}
-                                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                                  className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                                 />
 
                                 {/* Hover overlay */}
@@ -263,16 +253,6 @@ export default function ArticlesGallery({ posts }: ArticlesGalleryProps) {
 
                           {/* Article info */}
                           <div className="pt-4 pb-2">
-                            <p className="text-[10px] uppercase tracking-[0.15em] text-black/40 mb-1.5">
-                              {new Date(post.createdAt).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "long",
-                                  day: "numeric",
-                                  year: "numeric",
-                                }
-                              )}
-                            </p>
                             <h2 className="text-base md:text-lg font-normal tracking-tight leading-snug text-black group-hover:text-black/70 transition-colors">
                               {post.title}
                             </h2>

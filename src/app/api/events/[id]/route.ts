@@ -41,7 +41,8 @@ export async function PUT(
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
-    const { title, slug, excerpt, coverImage, content, rsvpEnabled } = await request.json();
+    const body = await request.json();
+    const { title, slug, excerpt, coverImage, content, rsvpEnabled, eventDate } = body;
 
     const updated = {
       ...existing,
@@ -51,6 +52,7 @@ export async function PUT(
       coverImage: coverImage ?? existing.coverImage,
       content: content ?? existing.content,
       rsvpEnabled: rsvpEnabled ?? existing.rsvpEnabled,
+      eventDate: "eventDate" in body ? eventDate : existing.eventDate,
       updatedAt: new Date().toISOString(),
     };
 

@@ -39,6 +39,7 @@ interface MusicPlayerContextValue {
   activeMixId: string | null;
   activeMix: Mix | null;
   coverArt: string | undefined;
+  artworkByMixId: Record<string, string>;
   mixesList: Mix[];
   staffPicksList: StaffPick[];
   swapKey: number;
@@ -273,6 +274,7 @@ export function MusicPlayerProvider({
   const [staffPicksList, setStaffPicksList] = useState<StaffPick[]>([]);
   const [activeMixId, setActiveMixId] = useState<string | null>(null);
   const [coverArt, setCoverArt] = useState<string | undefined>(undefined);
+  const [artworkByMixId, setArtworkByMixId] = useState<Record<string, string>>({});
   const [swapKey, setSwapKey] = useState(0);
   const pendingTrackUrl = useRef<string | null>(null);
   const [miniPlayerDismissed, setMiniPlayerDismissed] = useState(false);
@@ -289,6 +291,36 @@ export function MusicPlayerProvider({
       })
       .catch(() => {});
   }, []);
+
+  // Preload SoundCloud artwork for every mix so the list panel can show
+  // thumbnails without a per-row fetch
+  useEffect(() => {
+    if (mixesList.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      mixesList.map((mix) =>
+        fetch(
+          `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(mix.url)}`,
+        )
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => {
+            const thumb = d?.thumbnail_url as string | undefined;
+            return thumb
+              ? ([mix.id, thumb.replace("-large", "-t500x500")] as const)
+              : null;
+          })
+          .catch(() => null),
+      ),
+    ).then((pairs) => {
+      if (cancelled) return;
+      const next: Record<string, string> = {};
+      for (const p of pairs) if (p) next[p[0]] = p[1];
+      setArtworkByMixId(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mixesList]);
 
   const activeMix = useMemo(
     () => mixesList.find((m) => m.id === activeMixId) ?? null,
@@ -358,6 +390,7 @@ export function MusicPlayerProvider({
       activeMixId,
       activeMix,
       coverArt,
+      artworkByMixId,
       mixesList,
       staffPicksList,
       swapKey,
@@ -378,6 +411,7 @@ export function MusicPlayerProvider({
       activeMixId,
       activeMix,
       coverArt,
+      artworkByMixId,
       mixesList,
       staffPicksList,
       swapKey,

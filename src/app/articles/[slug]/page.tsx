@@ -54,14 +54,7 @@ export default async function ArticlePage({
 
         <article className="mt-8">
           <header className="mb-10">
-            <time className="text-xs text-black/40 uppercase tracking-wider">
-              {new Date(post.createdAt).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </time>
-            <h1 className="text-4xl sm:text-5xl font-normal tracking-tight mt-2">
+            <h1 className="text-4xl sm:text-5xl font-normal tracking-tight">
               {post.title}
             </h1>
             {post.excerpt && (
