@@ -42,9 +42,6 @@ export async function getEventIndex(): Promise<EventMeta[]> {
   }
 }
 
-/** No-op: index is now implicit in the events table */
-export async function saveEventIndex(_events: EventMeta[]): Promise<void> {}
-
 export async function getEvent(id: string): Promise<Event | null> {
   try {
     const rows = await db.select().from(events).where(eq(events.id, id));

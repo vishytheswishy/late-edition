@@ -1,5 +1,5 @@
-const domain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN!;
-const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN!;
+const domain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN;
+const storefrontAccessToken = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN;
 const endpoint = `https://${domain}/api/2025-10/graphql.json`;
 
 // ---------------------------------------------------------------------------
@@ -69,6 +69,12 @@ export interface ShopifyCart {
 // ---------------------------------------------------------------------------
 
 async function shopifyFetch<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
+  if (!domain || !storefrontAccessToken) {
+    throw new Error(
+      "Shopify env missing: set NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN and SHOPIFY_STOREFRONT_ACCESS_TOKEN",
+    );
+  }
+
   // Private tokens (shpat_, shpss_) use a different header than public tokens
   const isPrivateToken =
     storefrontAccessToken.startsWith("shpat_") ||

@@ -40,9 +40,6 @@ export async function getPostIndex(): Promise<PostMeta[]> {
   }
 }
 
-/** No-op: index is now implicit in the posts table */
-export async function savePostIndex(_posts: PostMeta[]): Promise<void> {}
-
 export async function getPost(id: string): Promise<Post | null> {
   try {
     const rows = await db.select().from(posts).where(eq(posts.id, id));
