@@ -6,6 +6,11 @@ import {
   generateId,
   type Post,
 } from "@/lib/posts";
+import {
+  assertImageUrl,
+  assertHtmlImagesAreBlob,
+  NonBlobUrlError,
+} from "@/lib/imageGuard";
 
 export async function GET(request: Request) {
   try {
@@ -43,6 +48,16 @@ export async function POST(request: Request) {
         { error: "Title, slug, and content are required" },
         { status: 400 }
       );
+    }
+
+    try {
+      assertImageUrl(coverImage, "coverImage");
+      assertHtmlImagesAreBlob(content, "content");
+    } catch (err) {
+      if (err instanceof NonBlobUrlError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
     }
 
     const id = generateId();

@@ -5,6 +5,11 @@ import {
   saveStaffMember,
   deleteStaffMember,
 } from "@/lib/staff";
+import {
+  assertImageUrl,
+  assertHtmlImagesAreBlob,
+  NonBlobUrlError,
+} from "@/lib/imageGuard";
 
 export async function GET(
   _request: Request,
@@ -54,6 +59,19 @@ export async function PUT(
       photos: photos ?? existing.photos,
       updatedAt: new Date().toISOString(),
     };
+
+    try {
+      assertImageUrl(updated.coverImage, "coverImage");
+      assertHtmlImagesAreBlob(updated.bio, "bio");
+      for (let i = 0; i < updated.photos.length; i++) {
+        assertImageUrl(updated.photos[i]?.url, `photos[${i}].url`);
+      }
+    } catch (err) {
+      if (err instanceof NonBlobUrlError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
+    }
 
     await saveStaffMember(updated);
 

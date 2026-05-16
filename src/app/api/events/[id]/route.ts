@@ -5,6 +5,11 @@ import {
   saveEvent,
   deleteEvent,
 } from "@/lib/events";
+import {
+  assertImageUrl,
+  assertHtmlImagesAreBlob,
+  NonBlobUrlError,
+} from "@/lib/imageGuard";
 
 export async function GET(
   _request: Request,
@@ -55,6 +60,16 @@ export async function PUT(
       eventDate: "eventDate" in body ? eventDate : existing.eventDate,
       updatedAt: new Date().toISOString(),
     };
+
+    try {
+      assertImageUrl(updated.coverImage, "coverImage");
+      assertHtmlImagesAreBlob(updated.content, "content");
+    } catch (err) {
+      if (err instanceof NonBlobUrlError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
+    }
 
     await saveEvent(updated);
 

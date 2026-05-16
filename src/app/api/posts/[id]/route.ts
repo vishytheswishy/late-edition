@@ -5,6 +5,11 @@ import {
   savePost,
   deletePost,
 } from "@/lib/posts";
+import {
+  assertImageUrl,
+  assertHtmlImagesAreBlob,
+  NonBlobUrlError,
+} from "@/lib/imageGuard";
 
 export async function GET(
   _request: Request,
@@ -52,6 +57,16 @@ export async function PUT(
       content: content ?? existing.content,
       updatedAt: new Date().toISOString(),
     };
+
+    try {
+      assertImageUrl(updated.coverImage, "coverImage");
+      assertHtmlImagesAreBlob(updated.content, "content");
+    } catch (err) {
+      if (err instanceof NonBlobUrlError) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
+    }
 
     await savePost(updated);
 
