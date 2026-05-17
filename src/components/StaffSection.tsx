@@ -158,7 +158,8 @@ export default function StaffSection({ members }: StaffSectionProps) {
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.1 }}
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6 md:gap-8"
+        className="grid grid-cols-2 sm:grid-cols-3 gap-6 md:gap-8 md:[grid-template-columns:repeat(var(--team-cols),minmax(0,1fr))]"
+        style={{ "--team-cols": members.length } as React.CSSProperties}
       >
         {members.map((member) => (
           <MemberSlideshow key={member.id} member={member} />
