@@ -31,6 +31,8 @@ export interface ShopifyProduct {
   handle: string;
   description: string;
   descriptionHtml: string;
+  productType: string;
+  tags: string[];
   priceRange: {
     minVariantPrice: ShopifyPrice;
   };
@@ -126,6 +128,8 @@ const PRODUCT_FRAGMENT = `
     handle
     description
     descriptionHtml
+    productType
+    tags
     priceRange {
       minVariantPrice { amount currencyCode }
     }

@@ -1,5 +1,5 @@
 import { getProducts } from "@/lib/shopify";
-import WardrobeShop from "@/components/WardrobeShop";
+import WaresCatalog from "@/components/WaresCatalog";
 
 export const revalidate = 300;
 
@@ -11,5 +11,5 @@ export default async function ShopPage() {
     products = null;
   }
 
-  return <WardrobeShop products={products} />;
+  return <WaresCatalog products={products} />;
 }
