@@ -254,10 +254,7 @@ export default function WaresCatalog({ products }: Props) {
         <div className="max-w-6xl mx-auto px-6 md:px-10 pt-10 pb-6">
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-black/60">
-                A Late Edition Mail-Order Catalog
-              </p>
-              <h1 className="mt-2 text-5xl md:text-7xl lg:text-8xl font-normal tracking-[-0.02em] leading-none">
+              <h1 className="text-5xl md:text-7xl lg:text-8xl font-normal tracking-[-0.02em] leading-none">
                 Wares
               </h1>
             </div>
@@ -312,27 +309,6 @@ export default function WaresCatalog({ products }: Props) {
           </span>
         </div>
 
-        {/* Index strip */}
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-3 border-t border-black/15 flex flex-wrap items-baseline gap-x-6 gap-y-1">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-black/45">
-            Contents
-          </p>
-          {view.length === 0 ? (
-            <span className="text-[11px] uppercase tracking-[0.15em] text-black/35">
-              No items match
-            </span>
-          ) : (
-            view.map((p, i) => (
-              <a
-                key={p.id}
-                href={`#item-${pad(i + 1)}`}
-                className="text-[11px] uppercase tracking-[0.15em] text-black/70 hover:text-black tabular-nums"
-              >
-                <span className="text-red-600">№{pad(i + 1)}</span> {p.title}
-              </a>
-            ))
-          )}
-        </div>
       </header>
 
       {/* ─── Catalog body — 3-up grid, like a printed page spread ─── */}
