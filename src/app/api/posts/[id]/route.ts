@@ -7,6 +7,7 @@ import {
 } from "@/lib/posts";
 import {
   assertImageUrl,
+  assertImageUrlArray,
   assertHtmlImagesAreBlob,
   NonBlobUrlError,
 } from "@/lib/imageGuard";
@@ -47,7 +48,8 @@ export async function PUT(
       return NextResponse.json({ error: "Post not found" }, { status: 404 });
     }
 
-    const { title, slug, excerpt, coverImage, content } = await request.json();
+    const body = await request.json();
+    const { title, slug, excerpt, coverImage, galleryImages, content } = body;
 
     const updated = {
       ...existing,
@@ -55,12 +57,17 @@ export async function PUT(
       slug: slug ?? existing.slug,
       excerpt: excerpt ?? existing.excerpt,
       coverImage: coverImage ?? existing.coverImage,
+      galleryImages:
+        "galleryImages" in body && Array.isArray(galleryImages)
+          ? galleryImages
+          : existing.galleryImages,
       content: content ?? existing.content,
       updatedAt: new Date().toISOString(),
     };
 
     try {
       assertImageUrl(updated.coverImage, "coverImage");
+      assertImageUrlArray(updated.galleryImages, "galleryImages");
       assertHtmlImagesAreBlob(updated.content, "content");
     } catch (err) {
       if (err instanceof NonBlobUrlError) {

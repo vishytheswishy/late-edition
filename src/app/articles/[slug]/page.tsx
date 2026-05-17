@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPostBySlug } from "@/lib/posts";
+import ArticleCarousel from "@/components/ArticleCarousel";
 
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,13 @@ export default async function ArticlePage({
     notFound();
   }
 
-  const { galleryImages, textContent } = splitGalleryAndContent(post.content);
+  const { galleryImages: legacyGallery, textContent } = splitGalleryAndContent(
+    post.content
+  );
+  const galleryImages =
+    post.galleryImages && post.galleryImages.length > 0
+      ? post.galleryImages
+      : legacyGallery;
   const hasGallery = galleryImages.length > 0;
 
   return (
@@ -64,26 +71,10 @@ export default async function ArticlePage({
         </article>
       </div>
 
-      {/* Photo album — horizontal scroll with masonry-height columns */}
+      {/* Photo carousel */}
       {hasGallery && (
         <div className="w-full mb-16 overflow-hidden">
-          <div
-            className="flex gap-3 px-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide"
-            style={{ WebkitOverflowScrolling: "touch" }}
-          >
-            {galleryImages.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={src}
-                alt={`${post.title} — photo ${i + 1}`}
-                loading={i < 3 ? "eager" : "lazy"}
-                className="h-[28rem] md:h-[36rem] w-auto object-cover rounded-lg flex-shrink-0 snap-center"
-              />
-            ))}
-            {/* Spacer for last-image padding */}
-            <div className="flex-shrink-0 w-1" aria-hidden="true" />
-          </div>
+          <ArticleCarousel images={galleryImages} title={post.title} />
         </div>
       )}
 

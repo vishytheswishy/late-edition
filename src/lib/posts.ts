@@ -8,6 +8,7 @@ export interface PostMeta {
   slug: string;
   excerpt: string;
   coverImage: string;
+  galleryImages: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -25,6 +26,7 @@ export async function getPostIndex(): Promise<PostMeta[]> {
         slug: posts.slug,
         excerpt: posts.excerpt,
         coverImage: posts.coverImage,
+        galleryImages: posts.galleryImages,
         createdAt: posts.createdAt,
         updatedAt: posts.updatedAt,
       })
@@ -32,6 +34,7 @@ export async function getPostIndex(): Promise<PostMeta[]> {
 
     return rows.map((r) => ({
       ...r,
+      galleryImages: r.galleryImages ?? [],
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     }));
@@ -47,6 +50,7 @@ export async function getPost(id: string): Promise<Post | null> {
     const r = rows[0];
     return {
       ...r,
+      galleryImages: r.galleryImages ?? [],
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     };
@@ -62,6 +66,7 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
     const r = rows[0];
     return {
       ...r,
+      galleryImages: r.galleryImages ?? [],
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     };
@@ -79,6 +84,7 @@ export async function savePost(post: Post): Promise<void> {
       slug: post.slug,
       excerpt: post.excerpt,
       coverImage: post.coverImage,
+      galleryImages: post.galleryImages,
       content: post.content,
       createdAt: new Date(post.createdAt),
       updatedAt: new Date(post.updatedAt),
@@ -90,6 +96,7 @@ export async function savePost(post: Post): Promise<void> {
         slug: post.slug,
         excerpt: post.excerpt,
         coverImage: post.coverImage,
+        galleryImages: post.galleryImages,
         content: post.content,
         updatedAt: new Date(post.updatedAt),
       },

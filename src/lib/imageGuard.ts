@@ -35,6 +35,23 @@ export function assertImageUrl(
   }
 }
 
+/** Validate every entry in a gallery array. Throws on the first non-blob URL. */
+export function assertImageUrlArray(
+  value: unknown,
+  field: string,
+): asserts value is string[] {
+  if (!Array.isArray(value)) {
+    throw new NonBlobUrlError(`${field} must be an array of URLs`);
+  }
+  for (let i = 0; i < value.length; i++) {
+    const item = value[i];
+    if (typeof item !== "string") {
+      throw new NonBlobUrlError(`${field}[${i}] must be a string`);
+    }
+    assertImageUrl(item, `${field}[${i}]`);
+  }
+}
+
 /**
  * Scan rich-text HTML for <img> tags and require every src to be a blob URL.
  * Allows in-repo /static paths so the lookbook covers / logos still work.

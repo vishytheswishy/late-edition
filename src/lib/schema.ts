@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   uniqueIndex,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 // ── Posts ──
@@ -16,6 +17,10 @@ export const posts = pgTable("posts", {
   slug: text("slug").notNull().unique(),
   excerpt: text("excerpt").notNull().default(""),
   coverImage: text("cover_image").notNull().default(""),
+  galleryImages: jsonb("gallery_images")
+    .$type<string[]>()
+    .notNull()
+    .default([]),
   content: text("content").notNull().default(""),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -35,6 +40,16 @@ export const events = pgTable("events", {
   eventDate: timestamp("event_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const eventPhotos = pgTable("event_photos", {
+  id: serial("id").primaryKey(),
+  eventId: text("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  caption: text("caption").notNull().default(""),
+  order: integer("display_order").notNull().default(0),
 });
 
 // ── RSVPs ──

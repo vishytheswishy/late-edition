@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { slugify } from "@/lib/utils";
+import GalleryUploader from "@/components/GalleryUploader";
 
 const TiptapEditor = dynamic(() => import("@/components/TiptapEditor"), {
   ssr: false,
@@ -19,6 +20,7 @@ export default function NewPostPage() {
   const [slug, setSlug] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -72,6 +74,7 @@ export default function NewPostPage() {
           slug: slug.trim() || slugify(title),
           excerpt: excerpt.trim(),
           coverImage,
+          galleryImages,
           content,
         }),
       });
@@ -186,6 +189,20 @@ export default function NewPostPage() {
                   e.target.value = "";
                 }
               }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Carousel Images
+            </label>
+            <p className="text-xs text-black/40 mb-3">
+              Optional. Shown as a scrollable carousel at the top of the
+              article. Upload multiple images at once; drag arrows to reorder.
+            </p>
+            <GalleryUploader
+              images={galleryImages}
+              onChange={setGalleryImages}
             />
           </div>
 

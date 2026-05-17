@@ -8,6 +8,7 @@ import {
 } from "@/lib/posts";
 import {
   assertImageUrl,
+  assertImageUrlArray,
   assertHtmlImagesAreBlob,
   NonBlobUrlError,
 } from "@/lib/imageGuard";
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { title, slug, excerpt, coverImage, content } = await request.json();
+    const { title, slug, excerpt, coverImage, galleryImages, content } = await request.json();
 
     if (!title || !slug || !content) {
       return NextResponse.json(
@@ -51,8 +52,11 @@ export async function POST(request: Request) {
       );
     }
 
+    const gallery: string[] = Array.isArray(galleryImages) ? galleryImages : [];
+
     try {
       assertImageUrl(coverImage, "coverImage");
+      assertImageUrlArray(gallery, "galleryImages");
       assertHtmlImagesAreBlob(content, "content");
     } catch (err) {
       if (err instanceof NonBlobUrlError) {
@@ -70,6 +74,7 @@ export async function POST(request: Request) {
       slug,
       excerpt: excerpt || "",
       coverImage: coverImage || "",
+      galleryImages: gallery,
       content,
       createdAt: now,
       updatedAt: now,

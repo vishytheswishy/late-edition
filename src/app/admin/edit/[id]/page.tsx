@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { Post } from "@/lib/posts";
+import GalleryUploader from "@/components/GalleryUploader";
 
 const TiptapEditor = dynamic(() => import("@/components/TiptapEditor"), {
   ssr: false,
@@ -25,6 +26,7 @@ export default function EditPostPage({
   const [slug, setSlug] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [galleryImages, setGalleryImages] = useState<string[]>([]);
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,7 @@ export default function EditPostPage({
         setSlug(data.slug);
         setExcerpt(data.excerpt);
         setCoverImage(data.coverImage);
+        setGalleryImages(data.galleryImages ?? []);
         setContent(data.content);
       } catch {
         setError("Failed to load post");
@@ -93,6 +96,7 @@ export default function EditPostPage({
           slug: slug.trim(),
           excerpt: excerpt.trim(),
           coverImage,
+          galleryImages,
           content,
         }),
       });
@@ -222,6 +226,20 @@ export default function EditPostPage({
                   e.target.value = "";
                 }
               }}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Carousel Images
+            </label>
+            <p className="text-xs text-black/40 mb-3">
+              Optional. Shown as a scrollable carousel at the top of the
+              article. Upload multiple images at once; drag arrows to reorder.
+            </p>
+            <GalleryUploader
+              images={galleryImages}
+              onChange={setGalleryImages}
             />
           </div>
 
