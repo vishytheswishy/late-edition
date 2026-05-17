@@ -74,7 +74,20 @@ export default async function EventPage({
           />
         )}
 
-        {event.rsvpEnabled && <RsvpForm eventId={event.id} />}
+        {event.poshUrl && (
+          <div className="mt-10 flex justify-center">
+            <a
+              href={event.poshUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-lg text-sm tracking-wide hover:bg-black/80 transition-colors"
+            >
+              RSVP on Posh →
+            </a>
+          </div>
+        )}
+
+        {event.rsvpEnabled && !event.poshUrl && <RsvpForm eventId={event.id} />}
       </div>
     </div>
   );

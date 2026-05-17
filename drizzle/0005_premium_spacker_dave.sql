@@ -1,0 +1,1 @@
+ALTER TABLE "events" ADD COLUMN "posh_url" text DEFAULT '' NOT NULL;

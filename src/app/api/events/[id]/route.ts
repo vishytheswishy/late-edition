@@ -4,6 +4,7 @@ import {
   getEvent,
   saveEvent,
   deleteEvent,
+  validatePoshUrl,
 } from "@/lib/events";
 import {
   assertImageUrl,
@@ -48,7 +49,14 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { title, slug, excerpt, coverImage, content, rsvpEnabled, eventDate } = body;
+    const { title, slug, excerpt, coverImage, content, rsvpEnabled, poshUrl, eventDate } = body;
+
+    if ("poshUrl" in body) {
+      const poshUrlError = validatePoshUrl(poshUrl);
+      if (poshUrlError) {
+        return NextResponse.json({ error: poshUrlError }, { status: 400 });
+      }
+    }
 
     const updated = {
       ...existing,
@@ -58,6 +66,8 @@ export async function PUT(
       coverImage: coverImage ?? existing.coverImage,
       content: content ?? existing.content,
       rsvpEnabled: rsvpEnabled ?? existing.rsvpEnabled,
+      poshUrl:
+        "poshUrl" in body ? (poshUrl ?? "").trim() : existing.poshUrl,
       eventDate: "eventDate" in body ? eventDate : existing.eventDate,
       updatedAt: new Date().toISOString(),
     };

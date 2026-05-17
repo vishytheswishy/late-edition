@@ -4,6 +4,7 @@ import { generateId, slugify } from "@/lib/posts";
 import {
   getEventIndex,
   saveEvent,
+  validatePoshUrl,
   type Event,
 } from "@/lib/events";
 import {
@@ -42,13 +43,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { title, slug, excerpt, coverImage, content, rsvpEnabled, eventDate } = await request.json();
+    const { title, slug, excerpt, coverImage, content, rsvpEnabled, poshUrl, eventDate } = await request.json();
 
     if (!title || !content) {
       return NextResponse.json(
         { error: "Title and content are required" },
         { status: 400 }
       );
+    }
+
+    const poshUrlError = validatePoshUrl(poshUrl);
+    if (poshUrlError) {
+      return NextResponse.json({ error: poshUrlError }, { status: 400 });
     }
 
     try {
@@ -72,6 +78,7 @@ export async function POST(request: Request) {
       coverImage: coverImage || "",
       content,
       rsvpEnabled: rsvpEnabled ?? false,
+      poshUrl: (poshUrl ?? "").trim(),
       eventDate: eventDate ?? null,
       createdAt: now,
       updatedAt: now,

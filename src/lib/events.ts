@@ -9,6 +9,7 @@ export interface EventMeta {
   excerpt: string;
   coverImage: string;
   rsvpEnabled: boolean;
+  poshUrl: string;
   eventDate: string | null;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +29,7 @@ export async function getEventIndex(): Promise<EventMeta[]> {
         excerpt: events.excerpt,
         coverImage: events.coverImage,
         rsvpEnabled: events.rsvpEnabled,
+        poshUrl: events.poshUrl,
         eventDate: events.eventDate,
         createdAt: events.createdAt,
         updatedAt: events.updatedAt,
@@ -89,6 +91,7 @@ export async function saveEvent(event: Event): Promise<void> {
       coverImage: event.coverImage,
       content: event.content,
       rsvpEnabled: event.rsvpEnabled,
+      poshUrl: event.poshUrl,
       eventDate: eventDateValue,
       createdAt: new Date(event.createdAt),
       updatedAt: new Date(event.updatedAt),
@@ -102,6 +105,7 @@ export async function saveEvent(event: Event): Promise<void> {
         coverImage: event.coverImage,
         content: event.content,
         rsvpEnabled: event.rsvpEnabled,
+        poshUrl: event.poshUrl,
         eventDate: eventDateValue,
         updatedAt: new Date(event.updatedAt),
       },
@@ -110,4 +114,24 @@ export async function saveEvent(event: Event): Promise<void> {
 
 export async function deleteEvent(id: string): Promise<void> {
   await db.delete(events).where(eq(events.id, id));
+}
+
+export function validatePoshUrl(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string") return "poshUrl must be a string";
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return "poshUrl must be a valid URL";
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return "poshUrl must use http or https";
+  }
+  if (!/(^|\.)posh\.vip$/i.test(parsed.hostname)) {
+    return "poshUrl must point to posh.vip";
+  }
+  return null;
 }

@@ -21,6 +21,7 @@ export default function NewEventPage() {
   const [coverImage, setCoverImage] = useState("");
   const [content, setContent] = useState("");
   const [rsvpEnabled, setRsvpEnabled] = useState(false);
+  const [poshUrl, setPoshUrl] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -76,6 +77,7 @@ export default function NewEventPage() {
           coverImage,
           content,
           rsvpEnabled,
+          poshUrl: poshUrl.trim(),
           eventDate: eventDate ? new Date(eventDate).toISOString() : null,
         }),
       });
@@ -207,6 +209,23 @@ export default function NewEventPage() {
               className="w-full px-3 py-2 border border-black/20 rounded-lg text-sm focus:outline-none focus:border-black"
             />
             <p className="text-xs text-black/40 mt-1">When the event starts (local time). The events page countdown ticks down to this moment.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">
+              Posh.vip event URL
+            </label>
+            <input
+              type="url"
+              value={poshUrl}
+              onChange={(e) => setPoshUrl(e.target.value)}
+              placeholder="https://posh.vip/e/your-event"
+              className="w-full px-4 py-3 border border-black/20 rounded-lg text-sm focus:outline-none focus:border-black/40 transition-colors"
+            />
+            <p className="text-xs text-black/40 mt-1">
+              Optional. Paste the posh.vip link after creating the event there
+              to render an &quot;RSVP on Posh&quot; button.
+            </p>
           </div>
 
           <div className="flex items-center gap-3">

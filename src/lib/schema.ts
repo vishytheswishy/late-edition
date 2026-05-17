@@ -31,6 +31,7 @@ export const events = pgTable("events", {
   coverImage: text("cover_image").notNull().default(""),
   content: text("content").notNull().default(""),
   rsvpEnabled: boolean("rsvp_enabled").notNull().default(false),
+  poshUrl: text("posh_url").notNull().default(""),
   eventDate: timestamp("event_date", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
