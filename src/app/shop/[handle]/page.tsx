@@ -49,12 +49,9 @@ export default async function ProductPage({
         <div className="max-w-6xl mx-auto px-6 md:px-10 pt-8 pb-5">
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-black/60">
-                A Late Edition Mail-Order Catalog
-              </p>
               <Link
                 href="/shop"
-                className="mt-1 inline-block text-3xl md:text-4xl font-normal tracking-[-0.02em] leading-none hover:text-red-600 transition-colors"
+                className="inline-block text-3xl md:text-4xl font-normal tracking-[-0.02em] leading-none hover:text-red-600 transition-colors"
               >
                 Wares
               </Link>
