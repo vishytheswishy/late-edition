@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import type { Album, AlbumPhoto } from "@/lib/albums";
+import { useParallelUpload } from "@/lib/useParallelUpload";
+import UploadQueue from "@/components/UploadQueue";
 
 export default function EditAlbumPage({
   params,
@@ -20,10 +22,15 @@ export default function EditAlbumPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [uploadingCover, setUploadingCover] = useState(false);
-  const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const photosInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  const photoUploader = useParallelUpload({
+    onItemDone: (url) => {
+      setPhotos((prev) => [...prev, { url, caption: "" }]);
+    },
+  });
 
   useEffect(() => {
     async function fetchAlbum() {
@@ -66,24 +73,12 @@ export default function EditAlbumPage({
     }
   }, []);
 
-  const handlePhotosUpload = useCallback(async (files: FileList) => {
-    setUploadingPhotos(true);
-    const newPhotos: AlbumPhoto[] = [];
-    for (const file of Array.from(files)) {
-      const formData = new FormData();
-      formData.append("file", file);
-      try {
-        const res = await fetch("/api/upload", { method: "POST", body: formData });
-        if (!res.ok) continue;
-        const { url } = await res.json();
-        newPhotos.push({ url, caption: "" });
-      } catch {
-        // Skip failed uploads
-      }
-    }
-    setPhotos((prev) => [...prev, ...newPhotos]);
-    setUploadingPhotos(false);
-  }, []);
+  const handlePhotosUpload = useCallback(
+    (files: FileList) => {
+      void photoUploader.upload(files);
+    },
+    [photoUploader],
+  );
 
   const updateCaption = useCallback((index: number, caption: string) => {
     setPhotos((prev) =>
@@ -264,10 +259,10 @@ export default function EditAlbumPage({
               <button
                 type="button"
                 onClick={() => photosInputRef.current?.click()}
-                disabled={uploadingPhotos}
+                disabled={photoUploader.isUploading}
                 className="px-3 py-1.5 text-sm border border-black/20 rounded hover:bg-black/5 transition-colors disabled:opacity-50"
               >
-                {uploadingPhotos ? "Uploading..." : "Add Photos"}
+                {photoUploader.isUploading ? "Uploading..." : "Add Photos"}
               </button>
             </div>
             <input
@@ -285,14 +280,24 @@ export default function EditAlbumPage({
               }}
             />
 
+            {photoUploader.items.length > 0 && (
+              <div className="mb-3">
+                <UploadQueue
+                  items={photoUploader.items}
+                  isUploading={photoUploader.isUploading}
+                  onClearDone={photoUploader.clearDone}
+                />
+              </div>
+            )}
+
             {photos.length === 0 ? (
               <button
                 type="button"
                 onClick={() => photosInputRef.current?.click()}
-                disabled={uploadingPhotos}
+                disabled={photoUploader.isUploading}
                 className="w-full px-4 py-12 border-2 border-dashed border-black/20 rounded-lg text-sm text-black/40 hover:border-black/30 hover:text-black/60 transition-colors"
               >
-                {uploadingPhotos
+                {photoUploader.isUploading
                   ? "Uploading photos..."
                   : "Click to upload photos"}
               </button>
