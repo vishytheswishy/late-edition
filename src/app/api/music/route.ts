@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
 import { getMusicData, saveMusicData, type MusicData } from "@/lib/music";
+import { revalidateMusic } from "@/lib/revalidate";
 
 export async function GET(request: Request) {
   try {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     }
 
     await saveMusicData(data);
+    revalidateMusic();
     return NextResponse.json(data);
   } catch {
     return NextResponse.json(

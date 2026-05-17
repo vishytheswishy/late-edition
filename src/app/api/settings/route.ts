@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/auth";
 import { getSetting, setSetting } from "@/lib/settings";
+import { revalidateSettings } from "@/lib/revalidate";
 
 export async function GET(request: Request) {
   try {
@@ -41,6 +42,7 @@ export async function PUT(request: Request) {
     }
 
     await setSetting(key, value);
+    revalidateSettings();
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

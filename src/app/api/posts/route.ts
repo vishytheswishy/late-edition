@@ -11,6 +11,7 @@ import {
   assertHtmlImagesAreBlob,
   NonBlobUrlError,
 } from "@/lib/imageGuard";
+import { revalidateArticles } from "@/lib/revalidate";
 
 export async function GET(request: Request) {
   try {
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
     };
 
     await savePost(post);
+    revalidateArticles(post.slug);
 
     return NextResponse.json(post, { status: 201 });
   } catch {

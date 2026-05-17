@@ -7,6 +7,7 @@ import {
   type Album,
 } from "@/lib/albums";
 import { assertImageUrl, NonBlobUrlError } from "@/lib/imageGuard";
+import { revalidateAlbums } from "@/lib/revalidate";
 
 export async function GET(request: Request) {
   try {
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
     };
 
     await saveAlbum(album);
+    revalidateAlbums();
 
     return NextResponse.json(album, { status: 201 });
   } catch {

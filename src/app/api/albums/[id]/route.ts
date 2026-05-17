@@ -6,6 +6,7 @@ import {
   deleteAlbum,
 } from "@/lib/albums";
 import { assertImageUrl, NonBlobUrlError } from "@/lib/imageGuard";
+import { revalidateAlbums } from "@/lib/revalidate";
 
 export async function GET(
   _request: Request,
@@ -71,6 +72,7 @@ export async function PUT(
     }
 
     await saveAlbum(updated);
+    revalidateAlbums();
 
     return NextResponse.json(updated);
   } catch {
@@ -93,6 +95,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteAlbum(id);
+    revalidateAlbums();
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

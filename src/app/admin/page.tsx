@@ -1178,20 +1178,21 @@ function AdminContent() {
                       Contact Page Photo
                     </h3>
                     <p className="text-sm text-black/40">
-                      The image shown alongside the contact form. Falls back to
-                      the default magazine cover if not set.
+                      The image shown alongside the contact form.
                     </p>
                   </div>
 
                   {/* Preview */}
-                  <div className="relative w-48 aspect-[3/4] overflow-hidden rounded bg-neutral-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={contactPhoto || "/about/cover.png"}
-                      alt="Contact page photo"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                  {contactPhoto && (
+                    <div className="relative w-48 aspect-[3/4] overflow-hidden rounded bg-neutral-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={contactPhoto}
+                        alt="Contact page photo"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex gap-3">
                     <label

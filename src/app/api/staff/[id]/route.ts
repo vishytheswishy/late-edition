@@ -10,6 +10,7 @@ import {
   assertHtmlImagesAreBlob,
   NonBlobUrlError,
 } from "@/lib/imageGuard";
+import { revalidateStaff } from "@/lib/revalidate";
 
 export async function GET(
   _request: Request,
@@ -74,6 +75,7 @@ export async function PUT(
     }
 
     await saveStaffMember(updated);
+    revalidateStaff();
 
     return NextResponse.json(updated);
   } catch {
@@ -96,6 +98,7 @@ export async function DELETE(
   try {
     const { id } = await params;
     await deleteStaffMember(id);
+    revalidateStaff();
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

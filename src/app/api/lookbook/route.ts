@@ -5,6 +5,7 @@ import {
   uploadLookbookImage,
   deleteLookbookImage,
 } from "@/lib/lookbook";
+import { revalidateLookbook } from "@/lib/revalidate";
 
 export async function GET(request: Request) {
   try {
@@ -48,6 +49,7 @@ export async function PUT(request: Request) {
     }
 
     const url = await uploadLookbookImage(file);
+    revalidateLookbook();
     return NextResponse.json({ url });
   } catch {
     return NextResponse.json(
@@ -70,6 +72,7 @@ export async function DELETE(request: Request) {
     }
 
     await deleteLookbookImage(url);
+    revalidateLookbook();
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(
