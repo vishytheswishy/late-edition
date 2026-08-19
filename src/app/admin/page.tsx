@@ -591,10 +591,15 @@ function AdminContent() {
                               )}
                             </h3>
                             <p className="text-sm text-black/40 mt-0.5">
-                              {new Date(event.createdAt).toLocaleDateString(
-                                "en-US",
-                                { month: "short", day: "numeric", year: "numeric" }
-                              )}
+                              {event.eventDate
+                                ? new Date(event.eventDate).toLocaleDateString(
+                                    "en-US",
+                                    { month: "short", day: "numeric", year: "numeric" }
+                                  )
+                                : `Added ${new Date(event.createdAt).toLocaleDateString(
+                                    "en-US",
+                                    { month: "short", day: "numeric", year: "numeric" }
+                                  )} — no event date`}
                               {event.excerpt && (
                                 <span className="ml-2">
                                   &middot;{" "}

@@ -21,11 +21,13 @@ export default async function Page() {
   ]);
 
   const lookbookImages = shuffleArray(lookbook.images.map((img) => img.url));
+  // Same ordering as /events: by event date when set, else date added
   const latestEvents = [...events]
-    .sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )
+    .sort((a, b) => {
+      const aDate = new Date(a.eventDate ?? a.createdAt).getTime();
+      const bDate = new Date(b.eventDate ?? b.createdAt).getTime();
+      return bDate - aDate;
+    })
     .slice(0, 3);
 
   return (

@@ -136,7 +136,9 @@ export default function Events({ events }: { events: EventMeta[] }) {
 
                     <div className="pt-4">
                       <p className="text-[10px] uppercase tracking-[0.15em] text-black/40 mb-1.5">
-                        {new Date(event.createdAt).toLocaleDateString("en-US", {
+                        {new Date(
+                          event.eventDate ?? event.createdAt
+                        ).toLocaleDateString("en-US", {
                           month: "long",
                           day: "numeric",
                           year: "numeric",
