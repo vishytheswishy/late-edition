@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import type { EventMeta } from "@/lib/events";
 
 // ── Animation variants ──
@@ -146,11 +147,12 @@ export default function EventsGallery({ events }: EventsGalleryProps) {
                         <div className="relative aspect-square w-full overflow-hidden bg-neutral-50 rounded-sm">
                           {event.coverImage ? (
                             <>
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
+                              <Image
                                 src={event.coverImage}
                                 alt={event.title}
-                                className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                                fill
+                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 512px"
+                                className="object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                               />
 
                               {/* Hover overlay */}

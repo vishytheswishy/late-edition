@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import type { EventMeta } from "@/lib/events";
 
 const containerVariants = {
@@ -21,26 +21,7 @@ const itemVariants = {
   },
 };
 
-export default function Events() {
-  const [events, setEvents] = useState<EventMeta[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchEvents() {
-      try {
-        const res = await fetch("/api/events");
-        if (res.ok) {
-          const data = await res.json();
-          setEvents(data);
-        }
-      } catch {
-        // Silently fail
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchEvents();
-  }, []);
+export default function Events({ events }: { events: EventMeta[] }) {
 
   return (
     <section
@@ -62,13 +43,7 @@ export default function Events() {
           )}
         </div>
 
-        {loading ? (
-          <div className="py-20 text-center">
-            <p className="text-[10px] uppercase tracking-widest text-black/30">
-              Loading...
-            </p>
-          </div>
-        ) : events.length === 0 ? (
+        {events.length === 0 ? (
           <div className="py-20 text-center">
             <p className="text-sm text-black/40 font-light">
               No upcoming events
@@ -94,11 +69,12 @@ export default function Events() {
                     <div className="relative aspect-square w-full overflow-hidden bg-neutral-50 rounded-sm">
                       {event.coverImage ? (
                         <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+                          <Image
                             src={event.coverImage}
                             alt={event.title}
-                            className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                           />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/[0.04] transition-colors duration-300" />
                         </>

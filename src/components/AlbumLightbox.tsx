@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import Image from "next/image";
 import type { Album } from "@/lib/albums";
 
 export default function AlbumLightbox({
@@ -101,11 +102,13 @@ export default function AlbumLightbox({
                     key={`${photo.url}-${index}`}
                     className="break-inside-avoid"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={photo.url}
                       alt={photo.caption || `Photo ${index + 1}`}
-                      className="w-full rounded-lg"
+                      width={0}
+                      height={0}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="w-full h-auto rounded-lg"
                     />
                     {photo.caption && (
                       <p className="text-sm text-white/50 mt-2 mb-4">

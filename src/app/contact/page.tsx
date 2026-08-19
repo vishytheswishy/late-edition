@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 
 export default function ContactPage() {
   const [firstName, setFirstName] = useState("");
@@ -167,11 +168,12 @@ export default function ContactPage() {
           {contactPhoto && (
             <div className="flex-1 max-w-lg">
               <div className="relative w-full aspect-[3/4] overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={contactPhoto}
                   alt="Late Edition"
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 512px"
+                  className="object-cover"
                 />
               </div>
             </div>

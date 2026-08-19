@@ -3,8 +3,15 @@
 import LookbookLayout from "./LookbookLayout";
 import Events from "./Events";
 import { useState, useEffect } from "react";
+import type { EventMeta } from "@/lib/events";
 
-export default function Home() {
+export default function Home({
+  lookbookImages,
+  events,
+}: {
+  lookbookImages: string[];
+  events: EventMeta[];
+}) {
   const [showPointer, setShowPointer] = useState(true);
 
   const handleScrollToEvents = () => {
@@ -27,7 +34,7 @@ export default function Home() {
       }
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -35,7 +42,7 @@ export default function Home() {
     <div className="min-h-screen bg-white">
       <section className="h-screen bg-white flex flex-col overflow-hidden pt-24 md:pt-28 relative">
         <div className="flex-1 overflow-hidden">
-          <LookbookLayout />
+          <LookbookLayout images={lookbookImages} />
         </div>
         {showPointer && (
           <button
@@ -59,7 +66,7 @@ export default function Home() {
           </button>
         )}
       </section>
-      <Events />
+      <Events events={events} />
     </div>
   );
 }

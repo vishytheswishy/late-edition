@@ -1,6 +1,7 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
+import Image from "next/image";
 import {
   useCallback,
   useEffect,
@@ -134,11 +135,12 @@ function MobileAlbumBrowser({
             className="group relative aspect-[3/4] rounded-lg overflow-hidden bg-black/[0.03] text-left"
           >
             {album.coverImage ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
+              <Image
                 src={album.coverImage}
                 alt={album.title}
-                className="absolute inset-0 w-full h-full object-contain transition-transform duration-300 group-active:scale-[1.02]"
+                fill
+                sizes="(max-width: 512px) 50vw, 256px"
+                className="object-contain transition-transform duration-300 group-active:scale-[1.02]"
               />
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-black/10" />

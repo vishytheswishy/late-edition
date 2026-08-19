@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getEventBySlug } from "@/lib/events";
 import RsvpForm from "@/components/RsvpForm";
@@ -55,11 +56,14 @@ export default async function EventPage({
       {hasFlyer && (
         <div className="w-full mb-10">
           <div className="container mx-auto px-4 max-w-4xl">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={event.coverImage}
               alt={event.title}
-              className="w-full rounded-lg"
+              width={0}
+              height={0}
+              sizes="(max-width: 896px) 100vw, 896px"
+              priority
+              className="w-full h-auto rounded-lg"
             />
           </div>
         </div>

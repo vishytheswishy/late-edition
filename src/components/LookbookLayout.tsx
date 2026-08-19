@@ -31,21 +31,11 @@ type CellType = {
   imageSrc?: string;
 };
 
-// Shuffle array function
-function shuffleArray<T>(array: T[]): T[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
-export default function LookbookLayout() {
+export default function LookbookLayout({ images }: { images: string[] }) {
   const router = useRouter();
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
   const [isMobile, setIsMobile] = useState(false);
-  const [shuffledImages, setShuffledImages] = useState<string[]>([]);
+  const shuffledImages = images;
   const [isLoaded, setIsLoaded] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [hasTouched, setHasTouched] = useState(false);
@@ -62,20 +52,6 @@ export default function LookbookLayout() {
   };
 
   useEffect(() => {
-    // Fetch lookbook images from the API, fall back to defaults
-    fetch("/api/lookbook")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        const urls =
-          data?.images?.length > 0
-            ? data.images.map((img: { url: string }) => img.url)
-            : [];
-        setShuffledImages(shuffleArray(urls));
-      })
-      .catch(() => {
-        setShuffledImages([]);
-      });
-
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -136,10 +112,13 @@ export default function LookbookLayout() {
     { colStart: 9, colEnd: 11, rowStart: 4, rowEnd: 5 }, // Medium wide (2x1)
   ];
 
-  // Assign random images to cells
+  // Assign images to cells (order is pre-shuffled server-side)
   const cellsWithImages = imageCells.map((cell, idx) => ({
     ...cell,
-    imageSrc: shuffledImages[idx % shuffledImages.length],
+    imageSrc:
+      shuffledImages.length > 0
+        ? shuffledImages[idx % shuffledImages.length]
+        : undefined,
   }));
 
   const cells: CellType[] = [
@@ -284,6 +263,8 @@ export default function LookbookLayout() {
                     src={imageSrc}
                     alt={`Lookbook image ${index + 1}`}
                     fill
+                    sizes="(max-width: 768px) 20vw, 14vw"
+                    quality={70}
                     className="object-cover w-full h-full"
                     onError={() => handleImageError(imageSrc)}
                   />

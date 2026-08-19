@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getPostBySlug } from "@/lib/posts";
 import ArticleCarousel from "@/components/ArticleCarousel";
@@ -81,11 +82,14 @@ export default async function ArticlePage({
       {/* Cover image fallback when no gallery */}
       {!hasGallery && post.coverImage && (
         <div className="container mx-auto px-4 max-w-3xl mb-10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src={post.coverImage}
             alt={post.title}
-            className="w-full rounded-lg"
+            width={0}
+            height={0}
+            sizes="(max-width: 768px) 100vw, 768px"
+            priority
+            className="w-full h-auto rounded-lg"
           />
         </div>
       )}

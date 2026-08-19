@@ -268,9 +268,11 @@ export default function Magazine3D({
 }) {
   return (
     <Canvas
+      dpr={[1, 1.5]}
       gl={{
         antialias: true,
         alpha: true,
+        powerPreference: "low-power",
         toneMapping: THREE.NoToneMapping,
         outputColorSpace: THREE.LinearSRGBColorSpace,
       }}

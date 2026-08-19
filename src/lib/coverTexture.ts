@@ -2,6 +2,7 @@
  * Shared cover texture generator used by book components
  * so that both display the exact same cover visual.
  */
+import { optimizedImageUrl } from "@/lib/optimizedImageUrl";
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -55,7 +56,7 @@ export async function createCoverCanvas(
   // Cover image
   if (coverUrl) {
     try {
-      const img = await loadImage(coverUrl);
+      const img = await loadImage(optimizedImageUrl(coverUrl, 1200));
       const imgAspect = img.width / img.height;
       const slotW = width * 0.7;
       const slotH = slotW / imgAspect;

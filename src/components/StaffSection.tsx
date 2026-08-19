@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import Image from "next/image";
 import type { StaffMember } from "@/lib/staff";
 
 // ── Animation variants ──
@@ -66,16 +67,22 @@ function MemberSlideshow({ member }: { member: StaffMember }) {
         {images.length > 0 ? (
           <>
             <AnimatePresence mode="wait">
-              <motion.img
+              <motion.div
                 key={`${member.id}-${current}`}
-                src={images[current]}
-                alt={`${member.name} – ${current + 1} of ${images.length}`}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.5, ease: "easeInOut" }}
-              />
+              >
+                <Image
+                  src={images[current]}
+                  alt={`${member.name} – ${current + 1} of ${images.length}`}
+                  fill
+                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 20vw"
+                  className="object-cover"
+                />
+              </motion.div>
             </AnimatePresence>
 
             {/* Prev / Next click zones (only when multiple images) */}

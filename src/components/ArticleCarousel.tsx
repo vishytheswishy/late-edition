@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 interface Props {
   images: string[];
@@ -45,11 +46,13 @@ export default function ArticleCarousel({ images, title }: Props) {
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {images.map((src, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             key={`${src}-${i}`}
             src={src}
             alt={`${title} — photo ${i + 1}`}
+            width={0}
+            height={0}
+            sizes="(max-width: 768px) 85vw, 700px"
             loading={i < 2 ? "eager" : "lazy"}
             className="h-[28rem] md:h-[36rem] w-auto object-cover rounded-lg flex-shrink-0 snap-center"
           />

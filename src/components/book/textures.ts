@@ -1,5 +1,6 @@
 import { CanvasTexture, SRGBColorSpace } from "three";
 import { createCoverCanvas } from "@/lib/coverTexture";
+import { optimizedImageUrl } from "@/lib/optimizedImageUrl";
 import { CANVAS_W, CANVAS_H } from "./constants";
 import type { GridCell, PageData } from "./types";
 import type { AlbumPhoto } from "@/lib/albums";
@@ -91,7 +92,7 @@ export async function createGridTexture(
   for (let i = 0; i < photos.length && i < cells.length; i++) {
     const cell = cells[i];
     try {
-      const img = await loadImage(photos[i].url);
+      const img = await loadImage(optimizedImageUrl(photos[i].url, 1200));
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.12)";
       ctx.shadowBlur = 20;

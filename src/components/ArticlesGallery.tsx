@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import type { PostMeta } from "@/lib/posts";
 
 // ── Animation variants ──
@@ -152,11 +153,13 @@ export default function ArticlesGallery({ posts }: ArticlesGalleryProps) {
                     <div className="relative aspect-[16/9] w-full overflow-hidden bg-neutral-50 rounded-sm">
                       {featured.coverImage ? (
                         <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
+                          <Image
                             src={featured.coverImage}
                             alt={featured.title}
-                            className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                            fill
+                            priority
+                            sizes="(max-width: 1024px) 100vw, 1024px"
+                            className="object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                           />
 
                           {/* Hover overlay */}
@@ -220,11 +223,12 @@ export default function ArticlesGallery({ posts }: ArticlesGalleryProps) {
                           <div className="relative aspect-[4/3] w-full overflow-hidden bg-neutral-50 rounded-sm">
                             {post.coverImage ? (
                               <>
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <Image
                                   src={post.coverImage}
                                   alt={post.title}
-                                  className="w-full h-full object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                                  fill
+                                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 512px"
+                                  className="object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                                 />
 
                                 {/* Hover overlay */}

@@ -40,6 +40,7 @@ export default async function AboutPage() {
                 src="/about/cover.png"
                 alt="Late Edition"
                 fill
+                sizes="(max-width: 768px) 100vw, 576px"
                 className="object-cover"
                 priority
               />
