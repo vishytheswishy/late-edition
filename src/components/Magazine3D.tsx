@@ -1,8 +1,12 @@
 "use client";
 
 import { useRef, Suspense, useMemo } from "react";
-import { Canvas, useFrame, useLoader } from "@react-three/fiber";
-import { OrbitControls } from "@react-three/drei";
+import {
+  Canvas,
+  useFrame,
+  useLoader,
+  type ThreeEvent,
+} from "@react-three/fiber";
 import * as THREE from "three";
 
 if (typeof window !== "undefined") {
@@ -165,10 +169,39 @@ function RotatingMagazine({
 }) {
   const wholeRef = useRef<THREE.Group>(null);
   const smoothRotSpeed = useRef(0.5);
+  // Drag state so only touches that start ON the magazine rotate it —
+  // touches elsewhere fall through to normal page scrolling.
+  const drag = useRef({ active: false, lastX: 0, velocity: 0 });
+
+  const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    drag.current.active = true;
+    drag.current.lastX = e.clientX;
+    drag.current.velocity = 0;
+
+    const onMove = (ev: PointerEvent) => {
+      const dx = ev.clientX - drag.current.lastX;
+      drag.current.lastX = ev.clientX;
+      if (wholeRef.current) wholeRef.current.rotation.y += dx * 0.01;
+      drag.current.velocity = dx * 0.01;
+    };
+    const onEnd = () => {
+      drag.current.active = false;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onEnd);
+      window.removeEventListener("pointercancel", onEnd);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onEnd);
+    window.addEventListener("pointercancel", onEnd);
+  };
 
   useFrame((_, delta) => {
-    if (!wholeRef.current) return;
-    wholeRef.current.rotation.y += delta * smoothRotSpeed.current;
+    if (!wholeRef.current || drag.current.active) return;
+    // Flick inertia decays back into the idle auto-rotation
+    drag.current.velocity *= 0.95;
+    wholeRef.current.rotation.y +=
+      delta * smoothRotSpeed.current + drag.current.velocity;
   });
 
   const spineX = -(COVER_W / 2);
@@ -178,6 +211,7 @@ function RotatingMagazine({
       ref={wholeRef}
       position={[0, 0, 0]}
       scale={0.85}
+      onPointerDown={handlePointerDown}
     >
       {/* Spine */}
       <Suspense
@@ -238,21 +272,11 @@ function MagazineScene({
   spineCover?: string;
 }) {
   return (
-    <>
-      <RotatingMagazine
-        frontCover={frontCover}
-        backCover={backCover}
-        spineCover={spineCover}
-      />
-
-      <OrbitControls
-        enableZoom={false}
-        enablePan={false}
-        autoRotate={false}
-        minPolarAngle={Math.PI / 3}
-        maxPolarAngle={Math.PI / 1.5}
-      />
-    </>
+    <RotatingMagazine
+      frontCover={frontCover}
+      backCover={backCover}
+      spineCover={spineCover}
+    />
   );
 }
 
