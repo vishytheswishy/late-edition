@@ -160,7 +160,7 @@ export default function NewEventPage() {
                 <img
                   src={coverImage}
                   alt="Cover preview"
-                  className="w-full h-48 object-cover rounded-lg border border-black/10"
+                  className="w-full h-48 object-contain rounded-lg border border-black/10 bg-black/[0.03]"
                 />
                 <button
                   type="button"

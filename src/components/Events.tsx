@@ -74,7 +74,7 @@ export default function Events({ events }: { events: EventMeta[] }) {
                             alt={event.title}
                             fill
                             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                            className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.03]"
+                            className="object-contain transition-transform duration-700 ease-out group-hover:scale-[1.03]"
                           />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/[0.04] transition-colors duration-300" />
                         </>
