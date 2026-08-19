@@ -40,7 +40,9 @@ export default function Home({
 
   return (
     <div className="min-h-screen bg-white">
-      <section className="h-screen bg-white flex flex-col overflow-hidden pt-24 md:pt-28 relative">
+      {/* Shorter than the viewport on mobile so the events section peeks
+          above the fold and it is clear the page scrolls */}
+      <section className="h-[calc(100svh-5.5rem)] md:h-screen bg-white flex flex-col overflow-hidden pt-24 md:pt-28 relative">
         <div className="flex-1 overflow-hidden">
           <LookbookLayout images={lookbookImages} />
         </div>

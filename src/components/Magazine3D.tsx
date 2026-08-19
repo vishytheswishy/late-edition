@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, Suspense, useMemo } from "react";
+import { useRef, useEffect, Suspense, useMemo } from "react";
 import {
   Canvas,
   useFrame,
@@ -172,6 +172,67 @@ function RotatingMagazine({
   // Drag state so only touches that start ON the magazine rotate it —
   // touches elsewhere fall through to normal page scrolling.
   const drag = useRef({ active: false, lastX: 0, velocity: 0 });
+  // Device-tilt state: the first reading is the neutral pose, so the
+  // magazine leans relative to how the phone was held on page load.
+  const gyro = useRef({
+    enabled: false,
+    baseBeta: 0,
+    baseGamma: 0,
+    beta: 0,
+    gamma: 0,
+  });
+
+  useEffect(() => {
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      if (e.beta == null || e.gamma == null) return;
+      const g = gyro.current;
+      if (!g.enabled) {
+        g.enabled = true;
+        g.baseBeta = e.beta;
+        g.baseGamma = e.gamma;
+      }
+      g.beta = e.beta;
+      g.gamma = e.gamma;
+    };
+
+    const start = () =>
+      window.addEventListener("deviceorientation", handleOrientation);
+
+    // iOS 13+ requires a permission request from inside a user gesture
+    type DOEWithPermission = typeof DeviceOrientationEvent & {
+      requestPermission?: () => Promise<"granted" | "denied">;
+    };
+    const DOE =
+      typeof DeviceOrientationEvent !== "undefined"
+        ? (DeviceOrientationEvent as DOEWithPermission)
+        : null;
+
+    let removeGestureListeners: (() => void) | null = null;
+
+    if (DOE?.requestPermission) {
+      const ask = () => {
+        removeGestureListeners?.();
+        DOE.requestPermission!()
+          .then((res) => {
+            if (res === "granted") start();
+          })
+          .catch(() => {});
+      };
+      window.addEventListener("touchend", ask);
+      window.addEventListener("click", ask);
+      removeGestureListeners = () => {
+        window.removeEventListener("touchend", ask);
+        window.removeEventListener("click", ask);
+      };
+    } else if (DOE) {
+      start();
+    }
+
+    return () => {
+      window.removeEventListener("deviceorientation", handleOrientation);
+      removeGestureListeners?.();
+    };
+  }, []);
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -197,7 +258,33 @@ function RotatingMagazine({
   };
 
   useFrame((_, delta) => {
-    if (!wholeRef.current || drag.current.active) return;
+    if (!wholeRef.current) return;
+
+    // Lean with the phone: beta (front/back tilt) drives X, gamma
+    // (left/right tilt) drives Z, clamped and smoothed so it stays subtle.
+    const g = gyro.current;
+    if (g.enabled) {
+      const tiltX =
+        THREE.MathUtils.degToRad(
+          THREE.MathUtils.clamp(g.beta - g.baseBeta, -35, 35)
+        ) * 0.45;
+      const tiltZ =
+        THREE.MathUtils.degToRad(
+          THREE.MathUtils.clamp(g.gamma - g.baseGamma, -35, 35)
+        ) * 0.45;
+      wholeRef.current.rotation.x = THREE.MathUtils.lerp(
+        wholeRef.current.rotation.x,
+        tiltX,
+        0.08
+      );
+      wholeRef.current.rotation.z = THREE.MathUtils.lerp(
+        wholeRef.current.rotation.z,
+        -tiltZ,
+        0.08
+      );
+    }
+
+    if (drag.current.active) return;
     // Flick inertia decays back into the idle auto-rotation
     drag.current.velocity *= 0.95;
     wholeRef.current.rotation.y +=
