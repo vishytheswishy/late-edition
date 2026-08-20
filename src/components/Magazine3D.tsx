@@ -487,10 +487,38 @@ const ISLAND_TINTS = {
   palmNight: new THREE.Color("#3d4468"),
 };
 
+// A lumpy, hand-shaped mound: a sphere pushed around by layered sine
+// noise, with per-vertex light/dark variation so the unlit surface
+// still reads as sand and not as a perfect plastic dome
+function makeIslandGeometry(seed: number): THREE.BufferGeometry {
+  const g = new THREE.SphereGeometry(1, 22, 14);
+  const pos = g.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const n =
+      Math.sin(v.x * 5.1 + v.z * 3.7 + seed) * 0.5 +
+      Math.sin(v.z * 7.3 - v.x * 2.2 + seed * 1.7) * 0.3 +
+      Math.sin(v.y * 6.1 + v.x * 4.4 + seed * 0.6) * 0.2;
+    v.multiplyScalar(1 + n * 0.13);
+    pos.setXYZ(i, v.x, v.y, v.z);
+    const shade = THREE.MathUtils.clamp(0.94 + n * 0.1, 0.82, 1.05);
+    colors[i * 3] = shade;
+    colors[i * 3 + 1] = shade;
+    colors[i * 3 + 2] = shade;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
 function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   const bobRef = useRef<THREE.Group>(null);
   const driftRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF(PALM_MODEL);
+  const domeGeom = useMemo(() => makeIslandGeometry(0), []);
+  const ringGeom = useMemo(() => makeIslandGeometry(3.3), []);
 
   // Clone the model and swap its lit materials for unlit ones that keep
   // the asset's colours, remembering each daytime colour for tinting
@@ -519,11 +547,13 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   }, [scene]);
 
   const sandMaterial = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: "#ecd0a0" }),
+    () =>
+      new THREE.MeshBasicMaterial({ color: "#ecd0a0", vertexColors: true }),
     []
   );
   const wetMaterial = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: "#c9ad82" }),
+    () =>
+      new THREE.MeshBasicMaterial({ color: "#c9ad82", vertexColors: true }),
     []
   );
   const tmpColor = useMemo(() => new THREE.Color(), []);
@@ -570,17 +600,20 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   return (
     <group ref={driftRef} position={[3.4, -1.74, -9]} scale={1.05}>
       <group ref={bobRef}>
-        {/* Thin wet-sand sliver at the waterline, then the dry dome */}
-        <mesh scale={[1.42, 0.3, 1.2]} material={wetMaterial}>
-          <sphereGeometry args={[1, 24, 12]} />
-        </mesh>
+        {/* Thin wet-sand sliver at the waterline, then the lumpy dome */}
+        <mesh
+          scale={[1.42, 0.3, 1.2]}
+          rotation={[0, 1.1, 0]}
+          geometry={ringGeom}
+          material={wetMaterial}
+        />
         <mesh
           position={[0, 0.12, 0]}
           scale={[1.32, 0.58, 1.12]}
+          rotation={[0, 0.4, 0]}
+          geometry={domeGeom}
           material={sandMaterial}
-        >
-          <sphereGeometry args={[1, 24, 16]} />
-        </mesh>
+        />
 
         {/* Kenney palm, planted on the dome. The position cancels the
             trunk's remaining base offset (about -0.8, 0, 0.7) so the
