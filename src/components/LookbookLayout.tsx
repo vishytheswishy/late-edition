@@ -6,6 +6,11 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import BombClock from "./BombClock";
+import {
+  computeSkyPalette,
+  orangeCountyHour,
+  skyTextColors,
+} from "@/lib/skyPalette";
 
 // Dynamically import the 3D component to avoid SSR issues
 const Magazine3D = dynamic(() => import("./Magazine3D"), {
@@ -40,6 +45,20 @@ export default function LookbookLayout({ images }: { images: string[] }) {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [hasTouched, setHasTouched] = useState(false);
   const navigated = useRef(false);
+  // Label colours track the sky gradient so text stays readable at
+  // every hour: tinted near-white on dark skies, near-black on light
+  const [overlay, setOverlay] = useState({
+    label: "#111111",
+    accent: "#dc2626",
+  });
+
+  useEffect(() => {
+    const update = () =>
+      setOverlay(skyTextColors(computeSkyPalette(orangeCountyHour())));
+    update();
+    const id = setInterval(update, 30000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleExplore = () => {
     if (navigated.current) return;
@@ -181,14 +200,16 @@ export default function LookbookLayout({ images }: { images: string[] }) {
               spineCover="/cover/spine.jpg"
             />
 
-            {/* Issue number overlay – difference blend keeps it readable on
-                the day sky and the night sky alike */}
+            {/* Issue number overlay – colours follow the sky gradient */}
             <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 pointer-events-none flex flex-col items-end">
-              <p className="text-xs md:text-sm uppercase tracking-wider text-white mix-blend-difference font-medium">
+              <p
+                className="text-xs md:text-sm uppercase tracking-wider font-medium"
+                style={{ color: overlay.label }}
+              >
                 ISSUE 002
               </p>
               <div className="mt-1.5">
-                <BombClock />
+                <BombClock accent={overlay.accent} />
               </div>
             </div>
 

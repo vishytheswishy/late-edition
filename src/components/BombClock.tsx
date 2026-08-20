@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 
-export default function BombClock() {
+export default function BombClock({
+  accent = "#dc2626",
+}: {
+  accent?: string;
+}) {
   const [time, setTime] = useState<string>("");
   const [colonVisible, setColonVisible] = useState(true);
 
@@ -35,14 +39,14 @@ export default function BombClock() {
   const [hours, minutes, seconds] = time.split(":");
 
   const digitStyle: React.CSSProperties = {
-    color: "#dc2626",
+    color: accent,
     letterSpacing: "-0.05em",
     transform: "scaleY(1.3)",
     display: "inline-block",
   };
 
   const colonStyle: React.CSSProperties = {
-    color: "#dc2626",
+    color: accent,
     opacity: colonVisible ? 1 : 0.2,
     transition: "opacity 0.1s",
     transform: "scaleY(1.3)",
@@ -55,7 +59,7 @@ export default function BombClock() {
       {/* Location */}
       <p
         className="text-[11px] md:text-xs uppercase tracking-wider font-medium"
-        style={{ color: "#dc2626" }}
+        style={{ color: accent }}
       >
         Orange County, CA
       </p>

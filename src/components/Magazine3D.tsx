@@ -15,6 +15,7 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import * as THREE from "three";
+import { computeSkyPalette, orangeCountyHour } from "@/lib/skyPalette";
 
 if (typeof window !== "undefined") {
   useLoader.preload(THREE.TextureLoader, [
@@ -53,7 +54,7 @@ function Spine({ spineTexture }: { spineTexture?: string }) {
     const edge = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     const face = new THREE.MeshBasicMaterial({
       map: texture || undefined,
-      color: texture ? "#ffffff" : PAGE_COLOR,
+      color: texture ? "#e2e2e2" : PAGE_COLOR,
     });
     // +x, -x, +y, -y, +z, -z  →  -x faces outward
     return [edge, face, edge, edge, edge, edge];
@@ -74,7 +75,8 @@ function FrontCover({ coverTexture }: { coverTexture?: string }) {
     const edge = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     const outside = new THREE.MeshBasicMaterial({
       map: texture || undefined,
-      color: "#ffffff",
+      // A touch below white so the cover sits into the scene light
+      color: "#e2e2e2",
     });
     const inside = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     // +x, -x, +y, -y, +z (outside), -z (inside)
@@ -97,7 +99,7 @@ function BackCover({ coverTexture }: { coverTexture?: string }) {
     const inside = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     const outside = new THREE.MeshBasicMaterial({
       map: texture || undefined,
-      color: texture ? "#ffffff" : "#f0f0f0",
+      color: texture ? "#e2e2e2" : "#f0f0f0",
     });
     // +z inside, -z outside
     return [edge, edge, edge, edge, inside, outside];
@@ -249,93 +251,98 @@ const WATER_VERT = /* glsl */ `
   }
 `;
 
-const WATER_FRAG = /* glsl */ `
-  precision highp float;
-  varying vec2 vUv;
+// ── Stylized ocean – flat pastel plane with drifting voronoi caustics,
+// after the Codrops "stylized water" look ──
+const OCEAN_VERT = /* glsl */ `
   uniform float uTime;
-  uniform float uAngle;   // surface tilt in radians (counter-rotates the glass)
-  uniform float uOffset;  // vertical bob of the surface
-  uniform float uAmp;     // slosh energy, 0 calm .. 1 agitated
-  uniform float uAspect;  // plane width / height
-  uniform vec3 uC1;       // far swell colour
-  uniform vec3 uC2;       // mid swell colour
-  uniform vec3 uC3;       // near swell colour
-  uniform vec3 uLight;    // sun / moon light tint
+  varying vec3 vWorld;
+  varying float vWave;
+  void main() {
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    // Gentle rolling swells, layered so they never repeat obviously
+    float t = uTime;
+    float h = sin(wp.x * 0.55 + t * 0.8) * 0.16;
+    h += sin(wp.z * 0.45 - t * 0.6 + 1.7) * 0.13;
+    h += sin((wp.x + wp.z) * 0.28 + t * 0.45) * 0.1;
+    h += sin(wp.x * 1.3 - t * 1.4 + 4.2) * 0.04;
+    // Waves flatten with distance so the horizon stays a clean line
+    float falloff = 1.0 - smoothstep(8.0, 28.0, distance(wp.xz, cameraPosition.xz));
+    h *= falloff;
+    wp.y += h;
+    vWorld = wp.xyz;
+    vWave = h;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }
+`;
+
+const OCEAN_FRAG = /* glsl */ `
+  precision highp float;
+  varying vec3 vWorld;
+  varying float vWave;
+  uniform float uTime;
+  uniform vec3 uCol;     // base water colour
+  uniform vec3 uLine;    // caustic line colour
+  uniform vec3 uHor;     // sky horizon colour for the distance fade
 
   float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
   }
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-      u.y
-    );
+  vec2 hash2(vec2 p) {
+    return fract(
+      sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) *
+      43758.5453);
   }
 
-  // One travelling swell: a few sine octaves around a base height
-  float swell(vec2 q, float base, float amp, float k, float speed,
-              float phase, float t) {
-    float w = sin(q.x * k + t * speed + phase) * amp;
-    w += sin(q.x * k * 1.8 - t * speed * 1.4 + phase * 2.0) * amp * 0.45;
-    w += sin(q.x * k * 3.1 + t * speed * 2.1 + phase * 0.5) * amp * 0.2;
-    return q.y - base - w; // signed height above this swell
+  // Voronoi cell-border distance (F2 - F1): thin where two cells meet.
+  // The cell points swim in circles, so the web of lines keeps drifting.
+  float caustic(vec2 p, float t) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float f1 = 8.0;
+    float f2 = 8.0;
+    for (int x = -1; x <= 1; x++) {
+      for (int y = -1; y <= 1; y++) {
+        vec2 g = vec2(float(x), float(y));
+        vec2 h = hash2(i + g);
+        vec2 o = g + 0.5 + 0.45 * sin(t + 6.2831 * h) - f;
+        float d = dot(o, o);
+        if (d < f1) { f2 = f1; f1 = d; }
+        else if (d < f2) { f2 = d; }
+      }
+    }
+    return sqrt(f2) - sqrt(f1);
   }
 
   void main() {
-    // Centered, aspect-correct coordinates
-    vec2 p = vec2((vUv.x - 0.5) * uAspect, vUv.y - 0.5);
+    vec2 p = vWorld.xz;
+    float t = uTime * 0.4;
 
-    // Rotate space so the surface stays level in the world while the
-    // "glass" (the screen) tilts with the phone.
-    float s = sin(uAngle);
-    float c = cos(uAngle);
-    vec2 q = vec2(c * p.x + s * p.y, -s * p.x + c * p.y);
+    // Two caustic webs at different scales and speeds
+    float lines = 1.0 - smoothstep(0.0, 0.07, caustic(p * 1.4, t));
+    float lines2 = 1.0 - smoothstep(0.0, 0.11, caustic(p * 0.55 + 31.7, t * 0.6));
 
-    float t = uTime;
-    // Waves grow when the phone moves, settle to a calm swell when still
-    float amp = 0.016 + uAmp * 0.05;
+    // Distance from the camera drives the misty horizon fade; far away
+    // the water becomes exactly the sky's horizon colour, so the two
+    // surfaces meet without a seam
+    float dist = length(vWorld - cameraPosition);
+    float fade = smoothstep(8.0, 70.0, dist);
 
-    // Three overlapping swells, back to front, like real ocean layers.
-    // The slosh mode (uAmp) also rocks the whole set side to side.
-    float rock = sin(q.x * 3.0 - t * 1.1) * uAmp * 0.04;
-    float d1 = swell(q, uOffset + 0.045 + rock, amp * 0.8, 9.0, 0.9, 0.0, t);
-    float d2 = swell(q, uOffset + rock, amp, 13.0, 1.3, 2.1, t);
-    float d3 = swell(q, uOffset - 0.05 + rock, amp * 1.2, 17.0, 1.7, 4.4, t);
+    // Crests catch the light, troughs sit deeper
+    vec3 col = uCol * (1.0 + vWave * 0.5);
+    col = mix(col, uLine, lines * 0.28 * (1.0 - fade));
+    col = mix(col, uLine, lines2 * 0.14 * (1.0 - fade * 0.7));
 
-    float b1 = smoothstep(0.006, -0.006, d1);
-    float b2 = smoothstep(0.006, -0.006, d2);
-    float b3 = smoothstep(0.006, -0.006, d3);
+    // Tiny drifting flecks on the surface
+    vec2 cell = floor(p * 1.4);
+    vec2 fc = fract(p * 1.4) - 0.5;
+    vec2 jitter = (hash2(cell) - 0.5) * 0.6;
+    float fleck = smoothstep(0.06, 0.02, length(fc - jitter)) *
+                  step(0.9, hash(cell + 7.0));
+    col = mix(col, uLine, fleck * 0.5 * (1.0 - fade));
 
-    // Water layers over the sky; the sun / moon mesh sets behind them
-    vec3 col = uC1;
-    float alpha = b1 * 0.8;
-    col = mix(col, uC2, b2 * 0.9);
-    alpha = max(alpha, b2 * 0.88);
-    col = mix(col, uC3, b3 * 0.92);
-    alpha = max(alpha, b3 * 0.95);
-
-    // Deepen toward the bottom of the front swell
-    float depth = clamp(-d3 * 1.2, 0.0, 1.0);
-    col = mix(col, uC3 * 0.55, depth * 0.7 * b3);
-
-    // Foam – a light-tinted sparkling crest on every swell line
-    float foam = exp(-abs(d1) * 90.0) * 0.35 +
-                 exp(-abs(d2) * 90.0) * 0.55 +
-                 exp(-abs(d3) * 90.0) * 0.8;
-    foam *= 0.65 + 0.7 * noise(vec2(q.x * 60.0, t * 2.5));
-    col += uLight * foam * 0.55;
-    alpha += foam * 0.4;
-
-    // Caustic shimmer drifting inside the water, fading with depth
-    float caus = noise(q * 11.0 + vec2(t * 0.3, -t * 0.4)) *
-                 noise(q * 7.0 - vec2(t * 0.2, t * 0.3));
-    col += caus * 0.18 * b2 * (1.0 - depth * 0.6);
-
-    gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
+    // Melt into the sky at the horizon
+    col = mix(col, uHor, fade);
+    gl_FragColor = vec4(col, 1.0);
   }
 `;
 
@@ -345,60 +352,23 @@ const WATER_FRAG = /* glsl */ `
 type SkyState = {
   isDay: boolean;
   frac: number; // progress through the current 12-h window
-  night: number; // 0 full day .. 1 full night (stars fade in with this)
+  night: number; // 0 full day .. 1 full night
   top: THREE.Color; // sky at the top of the frame
+  mid: THREE.Color; // sky between top and horizon
   horizon: THREE.Color; // sky at the waterline
-  light: THREE.Color; // sun / moon light tint (foam, glint)
+  light: THREE.Color; // ambient light tint (foam, sparkle)
 };
 
-// hour, sky top, horizon, light, night factor — soft pastel gradient stops
-const SKY_STOPS: [number, string, string, string, number][] = [
-  [0.0, "#232a4d", "#565d8a", "#c3cbe8", 1],
-  [4.5, "#2a3157", "#6a6f9e", "#c3cbe8", 1],
-  [5.5, "#454a7d", "#b98ba4", "#e8c4c9", 0.7],
-  [6.5, "#7d9ac9", "#ffc9a0", "#ffe3c4", 0.25],
-  [8.0, "#8ec1ea", "#e4f2fa", "#fff7ea", 0],
-  [12.0, "#7db8e8", "#e8f4fb", "#ffffff", 0],
-  [16.5, "#7ba6d4", "#f7ddb0", "#ffeccd", 0],
-  [18.5, "#5b6ba8", "#ffb490", "#ffd9b8", 0.25],
-  [20.0, "#383e6e", "#8d7ba6", "#d3cbe4", 0.7],
-  [21.5, "#262d52", "#5d6390", "#c3cbe8", 1],
-  [24.0, "#232a4d", "#565d8a", "#c3cbe8", 1],
-];
-
-function orangeCountyHour(): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    hour: "numeric",
-    minute: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 12);
-  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return h + m / 60;
-}
-
 function computeSky(hf: number): SkyState {
-  const isDay = hf >= 6 && hf < 18;
-  const frac = isDay
-    ? (hf - 6) / 12
-    : hf >= 18
-      ? (hf - 18) / 12
-      : (hf + 6) / 12;
-
-  let i = 0;
-  while (i < SKY_STOPS.length - 2 && hf >= SKY_STOPS[i + 1][0]) i++;
-  const [h0, top0, hor0, li0, n0] = SKY_STOPS[i];
-  const [h1, top1, hor1, li1, n1] = SKY_STOPS[i + 1];
-  const t = THREE.MathUtils.clamp((hf - h0) / (h1 - h0), 0, 1);
-
+  const p = computeSkyPalette(hf);
   return {
-    isDay,
-    frac,
-    night: THREE.MathUtils.lerp(n0, n1, t),
-    top: new THREE.Color(top0).lerp(new THREE.Color(top1), t),
-    horizon: new THREE.Color(hor0).lerp(new THREE.Color(hor1), t),
-    light: new THREE.Color(li0).lerp(new THREE.Color(li1), t),
+    isDay: p.isDay,
+    frac: p.frac,
+    night: p.night,
+    top: new THREE.Color(p.top),
+    mid: new THREE.Color(p.mid),
+    horizon: new THREE.Color(p.horizon),
+    light: new THREE.Color(p.light),
   };
 }
 
@@ -430,26 +400,39 @@ const SKY_FRAG = /* glsl */ `
   precision highp float;
   varying vec2 vUv;
   uniform vec3 uTop;
+  uniform vec3 uMid;
   uniform vec3 uHorizon;
 
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
   void main() {
-    // Horizon sits at the waterline (frame centre), glowing upward
-    float upward = smoothstep(0.5, 1.0, vUv.y);
-    vec3 col = mix(uHorizon, uTop, upward);
-    // Soft horizon bloom just above the waterline
-    col += uHorizon * 0.2 * exp(-abs(vUv.y - 0.5) * 9.0);
+    // The horizon line sits at the plane centre (camera eye level)
+    float f = clamp((vUv.y - 0.5) * 2.0, 0.0, 1.0);
+    // Blend in a roughly-perceptual space so the midtones stay rich
+    vec3 lo = mix(uHorizon * uHorizon, uMid * uMid,
+                  smoothstep(0.0, 0.55, f));
+    vec3 col = sqrt(mix(lo, uTop * uTop, smoothstep(0.45, 1.0, f)));
+    // Soft bloom above the horizon only – below it the colour must stay
+    // flat so the water fade can meet it exactly
+    col += uHorizon * 0.15 * exp(-abs(vUv.y - 0.5) * 8.0) *
+           smoothstep(0.49, 0.51, vUv.y);
+    // Tiny dither breaks up gradient banding
+    col += (hash(vUv * 913.7) - 0.5) * 0.012;
     gl_FragColor = vec4(col, 1.0);
   }
 `;
 
 function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
   const matRef = useRef<THREE.ShaderMaterial>(null);
-  const { w, h } = useViewPlane(-3);
+  const { w, h } = useViewPlane(-61);
 
   const uniforms = useMemo(
     () => ({
-      uTop: { value: new THREE.Color("#7db8e8") },
-      uHorizon: { value: new THREE.Color("#e8f4fb") },
+      uTop: { value: new THREE.Color("#63a9e6") },
+      uMid: { value: new THREE.Color("#a5cdef") },
+      uHorizon: { value: new THREE.Color("#e2f2fb") },
     }),
     []
   );
@@ -459,12 +442,15 @@ function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
     if (!m) return;
     const k = 1 - Math.exp(-2 * Math.min(delta, 0.05));
     (m.uniforms.uTop.value as THREE.Color).lerp(sky.current.top, k);
+    (m.uniforms.uMid.value as THREE.Color).lerp(sky.current.mid, k);
     (m.uniforms.uHorizon.value as THREE.Color).lerp(sky.current.horizon, k);
   });
 
   return (
-    <mesh position={[0, 0, -3]}>
-      <planeGeometry args={[w, h]} />
+    // Far behind the ocean, centred on the camera's eye level so the
+    // gradient horizon meets the sea
+    <mesh position={[0, 1.2, -61]}>
+      <planeGeometry args={[w * 1.4, h * 1.4]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={WATER_VERT}
@@ -477,19 +463,89 @@ function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
 }
 
 
-// Day and night water palettes; the sky's night factor blends them
-const WATER_DAY = [
-  new THREE.Color("#a4d4ec"),
-  new THREE.Color("#5da9dc"),
-  new THREE.Color("#2678bd"),
-];
-const WATER_NIGHT = [
-  new THREE.Color("#454e7d"),
-  new THREE.Color("#353e6b"),
-  new THREE.Color("#272f57"),
-];
+// ── Little island with a palm tree, off on the horizon ──
+const ISLAND_TINTS = {
+  sandDay: new THREE.Color("#ecd0a0"),
+  sandNight: new THREE.Color("#4a4a68"),
+  trunkDay: new THREE.Color("#a1704f"),
+  trunkNight: new THREE.Color("#3d3b58"),
+  leafDay: new THREE.Color("#7fbf6e"),
+  leafNight: new THREE.Color("#35486a"),
+};
 
-function WaterBackdrop({
+function Island({ sky }: { sky: MutableRefObject<SkyState> }) {
+  const sandMat = useRef<THREE.MeshBasicMaterial>(null);
+  const trunkMat = useRef<THREE.MeshBasicMaterial>(null);
+  // One shared leaf material so every frond tints together
+  const leafMaterial = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: "#7fbf6e" }),
+    []
+  );
+  const tmpColor = useMemo(() => new THREE.Color(), []);
+
+  useFrame((_, delta) => {
+    const s = sky.current;
+    const k = 1 - Math.exp(-2 * Math.min(delta, 0.05));
+    const tint = (
+      mat: THREE.MeshBasicMaterial | null,
+      day: THREE.Color,
+      night: THREE.Color
+    ) => {
+      if (!mat) return;
+      // Day/night blend, then pushed into the horizon haze
+      tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.35);
+      mat.color.lerp(tmpColor, k);
+    };
+    tint(sandMat.current, ISLAND_TINTS.sandDay, ISLAND_TINTS.sandNight);
+    tint(trunkMat.current, ISLAND_TINTS.trunkDay, ISLAND_TINTS.trunkNight);
+    tint(leafMaterial, ISLAND_TINTS.leafDay, ISLAND_TINTS.leafNight);
+  });
+
+  // Six drooping fronds around the trunk top
+  const fronds = useMemo(
+    () =>
+      Array.from({ length: 6 }, (_, i) => {
+        const a = (i / 6) * Math.PI * 2;
+        return { a, x: Math.cos(a) * 0.55, z: Math.sin(a) * 0.55 };
+      }),
+    []
+  );
+
+  return (
+    <group position={[8, -1.9, -35]}>
+      {/* Sand dome */}
+      <mesh scale={[4.5, 1.6, 3.5]}>
+        <sphereGeometry args={[1, 24, 16]} />
+        <meshBasicMaterial ref={sandMat} color="#ecd0a0" />
+      </mesh>
+
+      {/* Palm – trunk with a slight lean */}
+      <group position={[0.6, 1.2, 0]} rotation={[0, 0, -0.12]}>
+        <mesh position={[0, 1.2, 0]}>
+          <cylinderGeometry args={[0.09, 0.17, 2.6, 8]} />
+          <meshBasicMaterial ref={trunkMat} color="#a1704f" />
+        </mesh>
+        {fronds.map(({ a, x, z }, i) => (
+          <mesh
+            key={i}
+            position={[x, 2.5, z]}
+            rotation={[Math.sin(a) * 0.45, -a, -Math.cos(a) * 0.45]}
+            scale={[1.3, 0.07, 0.32]}
+            material={leafMaterial}
+          >
+            <sphereGeometry args={[1, 10, 6]} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+// Base water colours; the sky's night factor blends between them
+const OCEAN_DAY = new THREE.Color("#7fd8ca");
+const OCEAN_NIGHT = new THREE.Color("#2a3b5e");
+
+function Ocean({
   gyro,
   sky,
 }: {
@@ -497,31 +553,18 @@ function WaterBackdrop({
   sky: MutableRefObject<SkyState>;
 }) {
   const matRef = useRef<THREE.ShaderMaterial>(null);
-  const { w: planeW, h: planeH } = useViewPlane(-2);
-  const PLANE_Z = -2;
+  const groupRef = useRef<THREE.Group>(null);
 
-  // Damped-spring simulation so the water settles gracefully, not instantly
-  const sim = useRef({
-    angle: 0,
-    angleVel: 0,
-    off: 0,
-    offVel: 0,
-    energy: 0,
-    lastBeta: 0,
-    lastGamma: 0,
-  });
+  // Damped-spring simulation: the sea tilts subtly with the phone and
+  // settles gracefully. No pointer input — desktop stays calm.
+  const sim = useRef({ angle: 0, angleVel: 0, off: 0, offVel: 0 });
 
   const uniforms = useMemo(
     () => ({
       uTime: { value: 0 },
-      uAngle: { value: 0 },
-      uOffset: { value: 0 },
-      uAmp: { value: 0 },
-      uAspect: { value: 1 },
-      uC1: { value: WATER_DAY[0].clone() },
-      uC2: { value: WATER_DAY[1].clone() },
-      uC3: { value: WATER_DAY[2].clone() },
-      uLight: { value: new THREE.Color("#ffffff") },
+      uCol: { value: OCEAN_DAY.clone() },
+      uLine: { value: new THREE.Color("#ffffff") },
+      uHor: { value: new THREE.Color("#e2f2fb") },
     }),
     []
   );
@@ -536,22 +579,11 @@ function WaterBackdrop({
     let targetAngle = 0;
     let targetOff = 0;
     if (g.enabled) {
-      // The phone rolls one way; the level water appears to rotate the
-      // other way on screen — that is what sells "glass half full".
-      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -40, 40);
-      targetAngle = -THREE.MathUtils.degToRad(roll);
+      // The phone rolls one way; the level sea counter-tilts, subtly
+      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30);
+      targetAngle = -THREE.MathUtils.degToRad(roll) * 0.35;
       const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30);
-      targetOff = (-pitch / 30) * 0.05;
-
-      // Movement pumps slosh energy into the water
-      const rate =
-        Math.abs(g.gamma - s.lastGamma) + Math.abs(g.beta - s.lastBeta);
-      s.lastBeta = g.beta;
-      s.lastGamma = g.gamma;
-      s.energy = Math.min(1, s.energy + rate * 0.02);
-    } else {
-      // Desktop: a gentle sway follows the pointer
-      targetAngle = state.pointer.x * -0.1;
+      targetOff = (-pitch / 30) * 0.25;
     }
 
     const stiffness = 16;
@@ -562,46 +594,40 @@ function WaterBackdrop({
     s.offVel += (targetOff - s.off) * stiffness * dt;
     s.offVel *= Math.exp(-damping * dt);
     s.off += s.offVel * dt;
-    s.energy = Math.max(0, s.energy - dt * 0.4);
+
+    if (groupRef.current) {
+      groupRef.current.rotation.z = s.angle;
+      groupRef.current.position.y = s.off;
+    }
 
     const m = matRef.current;
     if (m) {
       m.uniforms.uTime.value = state.clock.elapsedTime;
-      m.uniforms.uAngle.value = s.angle;
-      m.uniforms.uOffset.value = s.off;
-      const energyNow = Math.min(1, s.energy + Math.abs(s.angleVel) * 1.2);
-      m.uniforms.uAmp.value +=
-        (energyNow - m.uniforms.uAmp.value) * (1 - Math.exp(-6 * dt));
-      const aspect = planeW / planeH;
-      m.uniforms.uAspect.value = aspect;
-
-      // Tint the water with the sky: darker at night, warm at golden hour
       const skyNow = sky.current;
       const k = 1 - Math.exp(-2 * dt);
-      for (let i = 0; i < 3; i++) {
-        tmpColor
-          .copy(WATER_DAY[i])
-          .lerp(WATER_NIGHT[i], skyNow.night)
-          .lerp(skyNow.horizon, i === 0 ? 0.25 : 0.1);
-        const u = [m.uniforms.uC1, m.uniforms.uC2, m.uniforms.uC3][i];
-        (u.value as THREE.Color).lerp(tmpColor, k);
-      }
-      (m.uniforms.uLight.value as THREE.Color).lerp(skyNow.light, k);
+      // Water: mint by day, deep indigo-teal by night, kissed by the sky
+      tmpColor
+        .copy(OCEAN_DAY)
+        .lerp(OCEAN_NIGHT, skyNow.night)
+        .lerp(skyNow.mid, 0.15);
+      (m.uniforms.uCol.value as THREE.Color).lerp(tmpColor, k);
+      (m.uniforms.uLine.value as THREE.Color).lerp(skyNow.light, k);
+      (m.uniforms.uHor.value as THREE.Color).lerp(skyNow.horizon, k);
     }
   });
 
   return (
-    <mesh position={[0, 0, PLANE_Z]}>
-      <planeGeometry args={[planeW, planeH]} />
-      <shaderMaterial
-        ref={matRef}
-        vertexShader={WATER_VERT}
-        fragmentShader={WATER_FRAG}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-      />
-    </mesh>
+    <group ref={groupRef}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -60]}>
+        <planeGeometry args={[220, 160, 200, 90]} />
+        <shaderMaterial
+          ref={matRef}
+          vertexShader={OCEAN_VERT}
+          fragmentShader={OCEAN_FRAG}
+          uniforms={uniforms}
+        />
+      </mesh>
+    </group>
   );
 }
 
@@ -753,7 +779,8 @@ function MagazineScene({
   return (
     <>
       <SkyBackdrop sky={sky} />
-      <WaterBackdrop gyro={gyro} sky={sky} />
+      <Island sky={sky} />
+      <Ocean gyro={gyro} sky={sky} />
       <RotatingMagazine
         frontCover={frontCover}
         backCover={backCover}
@@ -784,7 +811,7 @@ export default function Magazine3D({
         toneMapping: THREE.NoToneMapping,
         outputColorSpace: THREE.LinearSRGBColorSpace,
       }}
-      camera={{ position: [0, 0, 5], fov: 50 }}
+      camera={{ position: [0, 1.2, 5], rotation: [-0.18, 0, 0], fov: 50 }}
       style={{ width: "100%", height: "100%", touchAction: "pan-y" }}
     >
       <MagazineScene
