@@ -250,7 +250,7 @@ export default function WaresCatalog({ products }: Props) {
   return (
     <div className="min-h-screen bg-white pt-16 md:pt-20">
       {/* ─── Masthead ─── */}
-      <header className="border-b-2 border-black">
+      <header>
         <div className="max-w-6xl mx-auto px-6 md:px-10 pt-10 pb-6">
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div>
@@ -270,7 +270,7 @@ export default function WaresCatalog({ products }: Props) {
         </div>
 
         {/* Filter + Sort strip (inline dropdowns) */}
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-3 border-t border-black/15 flex flex-wrap items-baseline gap-x-8 gap-y-3">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-3 flex flex-wrap items-baseline gap-x-8 gap-y-3">
           <Dropdown
             label="Browse"
             value={filterType}

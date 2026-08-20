@@ -39,17 +39,9 @@ export default function ArticlesGallery({ posts }: ArticlesGalleryProps) {
   return (
     <div className="min-h-screen bg-white pt-16 md:pt-20">
       {/* ── Hero ── */}
-      <section className="relative w-full border-b border-black/10">
+      <section className="relative w-full">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center py-10 md:py-14">
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-[10px] uppercase tracking-[0.3em] text-black/40 mb-3"
-            >
-              The Latest
-            </motion.p>
             <motion.h1
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

@@ -1,13 +1,24 @@
 "use client";
 
-import { useRef, useEffect, Suspense, useMemo } from "react";
+import {
+  useRef,
+  useEffect,
+  useState,
+  Suspense,
+  useMemo,
+  type MutableRefObject,
+  type ReactNode,
+} from "react";
 import {
   Canvas,
   useFrame,
   useLoader,
+  useThree,
   type ThreeEvent,
 } from "@react-three/fiber";
 import * as THREE from "three";
+import { useGLTF } from "@react-three/drei";
+import { computeSkyPalette, orangeCountyHour } from "@/lib/skyPalette";
 
 if (typeof window !== "undefined") {
   useLoader.preload(THREE.TextureLoader, [
@@ -157,24 +168,20 @@ function PageBlock() {
   );
 }
 
-// ── Main interactive magazine ──
-function RotatingMagazine({
-  frontCover,
-  backCover,
-  spineCover,
-}: {
-  frontCover?: string;
-  backCover?: string;
-  spineCover?: string;
-}) {
-  const wholeRef = useRef<THREE.Group>(null);
-  const smoothRotSpeed = useRef(0.5);
-  // Drag state so only touches that start ON the magazine rotate it —
-  // touches elsewhere fall through to normal page scrolling.
-  const drag = useRef({ active: false, lastX: 0, velocity: 0 });
-  // Device-tilt state: the first reading is the neutral pose, so the
-  // magazine leans relative to how the phone was held on page load.
-  const gyro = useRef({
+// ── Shared device-tilt state ──
+type TiltState = {
+  enabled: boolean;
+  baseBeta: number;
+  baseGamma: number;
+  beta: number;
+  gamma: number;
+};
+
+// Device-tilt state: the first reading is the neutral pose, so everything
+// leans relative to how the phone was held on page load. One hook instance
+// feeds both the magazine and the water backdrop.
+function useDeviceTilt() {
+  const gyro = useRef<TiltState>({
     enabled: false,
     baseBeta: 0,
     baseGamma: 0,
@@ -233,6 +240,548 @@ function RotatingMagazine({
       removeGestureListeners?.();
     };
   }, []);
+
+  return gyro;
+}
+
+// ── Water backdrop – a glass half full that stays level as the phone tilts ──
+const WATER_VERT = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+// ── Stylized ocean – flat pastel plane with drifting voronoi caustics,
+// after the Codrops "stylized water" look ──
+const OCEAN_VERT = /* glsl */ `
+  uniform float uTime;
+  varying vec3 vWorld;
+  varying float vWave;
+  void main() {
+    vec4 wp = modelMatrix * vec4(position, 1.0);
+    // Gentle rolling swells, layered so they never repeat obviously
+    float t = uTime;
+    // Peak height ~0.3 – the magazine floats at a safe clearance above
+    float h = sin(wp.x * 0.55 + t * 0.8) * 0.11;
+    h += sin(wp.z * 0.45 - t * 0.6 + 1.7) * 0.09;
+    h += sin((wp.x + wp.z) * 0.28 + t * 0.45) * 0.07;
+    h += sin(wp.x * 1.3 - t * 1.4 + 4.2) * 0.03;
+    // Waves flatten with distance so the horizon stays a clean line
+    float falloff = 1.0 - smoothstep(8.0, 28.0, distance(wp.xz, cameraPosition.xz));
+    h *= falloff;
+    wp.y += h;
+    vWorld = wp.xyz;
+    vWave = h;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }
+`;
+
+const OCEAN_FRAG = /* glsl */ `
+  precision highp float;
+  varying vec3 vWorld;
+  varying float vWave;
+  uniform float uTime;
+  uniform vec3 uCol;     // base water colour
+  uniform vec3 uLine;    // caustic line colour
+  uniform vec3 uHor;     // sky horizon colour for the distance fade
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+  vec2 hash2(vec2 p) {
+    return fract(
+      sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) *
+      43758.5453);
+  }
+
+  // Voronoi cell-border distance (F2 - F1): thin where two cells meet.
+  // The cell points swim in circles, so the web of lines keeps drifting.
+  float caustic(vec2 p, float t) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    float f1 = 8.0;
+    float f2 = 8.0;
+    for (int x = -1; x <= 1; x++) {
+      for (int y = -1; y <= 1; y++) {
+        vec2 g = vec2(float(x), float(y));
+        vec2 h = hash2(i + g);
+        vec2 o = g + 0.5 + 0.45 * sin(t + 6.2831 * h) - f;
+        float d = dot(o, o);
+        if (d < f1) { f2 = f1; f1 = d; }
+        else if (d < f2) { f2 = d; }
+      }
+    }
+    return sqrt(f2) - sqrt(f1);
+  }
+
+  void main() {
+    vec2 p = vWorld.xz;
+    float t = uTime * 0.4;
+
+    // Distance from the camera drives the misty horizon fade; far away
+    // the water becomes exactly the sky's horizon colour, so the two
+    // surfaces meet without a seam
+    float dist = length(vWorld - cameraPosition);
+    float fade = smoothstep(8.0, 70.0, dist);
+
+    // Fully hazed pixels need no caustic work at all
+    if (fade > 0.995) {
+      gl_FragColor = vec4(uHor, 1.0);
+      return;
+    }
+
+    // Two caustic webs at different scales and speeds
+    float lines = 1.0 - smoothstep(0.0, 0.07, caustic(p * 1.4, t));
+    float lines2 = 1.0 - smoothstep(0.0, 0.11, caustic(p * 0.55 + 31.7, t * 0.6));
+
+    // Crests catch the light, troughs sit deeper
+    vec3 col = uCol * (1.0 + vWave * 0.5);
+    col = mix(col, uLine, lines * 0.28 * (1.0 - fade));
+    col = mix(col, uLine, lines2 * 0.14 * (1.0 - fade * 0.7));
+
+    // Tiny drifting flecks on the surface
+    vec2 cell = floor(p * 1.4);
+    vec2 fc = fract(p * 1.4) - 0.5;
+    vec2 jitter = (hash2(cell) - 0.5) * 0.6;
+    float fleck = smoothstep(0.06, 0.02, length(fc - jitter)) *
+                  step(0.9, hash(cell + 7.0));
+    col = mix(col, uLine, fleck * 0.5 * (1.0 - fade));
+
+    // Melt into the sky at the horizon
+    col = mix(col, uHor, fade);
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+// ── Orange County sky: time of day → colours and sun / moon position ──
+// Day runs 6:00–18:00 with the sun; night gets the moon. Both travel
+// left to right on an arc over their 12-hour window.
+type SkyState = {
+  isDay: boolean;
+  frac: number; // progress through the current 12-h window
+  night: number; // 0 full day .. 1 full night
+  top: THREE.Color; // sky at the top of the frame
+  mid: THREE.Color; // sky between top and horizon
+  horizon: THREE.Color; // sky at the waterline
+  light: THREE.Color; // ambient light tint (foam, sparkle)
+};
+
+function computeSky(hf: number): SkyState {
+  const p = computeSkyPalette(hf);
+  return {
+    isDay: p.isDay,
+    frac: p.frac,
+    night: p.night,
+    top: new THREE.Color(p.top),
+    mid: new THREE.Color(p.mid),
+    horizon: new THREE.Color(p.horizon),
+    light: new THREE.Color(p.light),
+  };
+}
+
+// One shared sky state, refreshed every 10 s so you can sit and watch
+// the sunrise or the sunset happen.
+function useOrangeCountySky() {
+  const sky = useRef<SkyState>(computeSky(orangeCountyHour()));
+  useEffect(() => {
+    const id = setInterval(() => {
+      sky.current = computeSky(orangeCountyHour());
+    }, 10000);
+    return () => clearInterval(id);
+  }, []);
+  return sky;
+}
+
+// Sizes a plane at the given z so it always fills the whole view
+function useViewPlane(z: number) {
+  const { size, camera } = useThree();
+  const persp = camera as THREE.PerspectiveCamera;
+  const dist = persp.position.z - z;
+  const h = 2 * dist * Math.tan(THREE.MathUtils.degToRad(persp.fov / 2));
+  const w = h * (size.width / size.height);
+  return { w, h };
+}
+
+// ── Sky backdrop – a clean gradient that follows the time of day ──
+const SKY_FRAG = /* glsl */ `
+  precision highp float;
+  varying vec2 vUv;
+  uniform vec3 uTop;
+  uniform vec3 uMid;
+  uniform vec3 uHorizon;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  void main() {
+    // The horizon line sits at the plane centre (camera eye level)
+    float f = clamp((vUv.y - 0.5) * 2.0, 0.0, 1.0);
+    // Blend in a roughly-perceptual space so the midtones stay rich
+    vec3 lo = mix(uHorizon * uHorizon, uMid * uMid,
+                  smoothstep(0.0, 0.55, f));
+    vec3 col = sqrt(mix(lo, uTop * uTop, smoothstep(0.45, 1.0, f)));
+    // Soft bloom above the horizon only – below it the colour must stay
+    // flat so the water fade can meet it exactly
+    col += uHorizon * 0.15 * exp(-abs(vUv.y - 0.5) * 8.0) *
+           smoothstep(0.49, 0.51, vUv.y);
+    // Tiny dither breaks up gradient banding
+    col += (hash(vUv * 913.7) - 0.5) * 0.012;
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+  const { w, h } = useViewPlane(-61);
+
+  const uniforms = useMemo(
+    () => ({
+      uTop: { value: new THREE.Color("#63a9e6") },
+      uMid: { value: new THREE.Color("#a5cdef") },
+      uHorizon: { value: new THREE.Color("#e2f2fb") },
+    }),
+    []
+  );
+
+  useFrame((_, delta) => {
+    const m = matRef.current;
+    if (!m) return;
+    const k = 1 - Math.exp(-2 * Math.min(delta, 0.05));
+    (m.uniforms.uTop.value as THREE.Color).lerp(sky.current.top, k);
+    (m.uniforms.uMid.value as THREE.Color).lerp(sky.current.mid, k);
+    (m.uniforms.uHorizon.value as THREE.Color).lerp(sky.current.horizon, k);
+  });
+
+  return (
+    // Far behind the ocean, centred on the camera's eye level so the
+    // gradient horizon meets the sea
+    <mesh position={[0, 1.2, -61]}>
+      <planeGeometry args={[w * 1.4, h * 1.4]} />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={WATER_VERT}
+        fragmentShader={SKY_FRAG}
+        uniforms={uniforms}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+
+// ── Little floating island with a palm tree ──
+// The palm is "Palm Detailed Short" by Kenney (CC0), served from
+// public/models/palm.gltf via the pmndrs market-assets library.
+const PALM_MODEL = "/models/palm.gltf";
+useGLTF.preload(PALM_MODEL);
+
+const ISLAND_TINTS = {
+  sandDay: new THREE.Color("#ecd0a0"),
+  sandNight: new THREE.Color("#4a4a68"),
+  wetDay: new THREE.Color("#c9ad82"),
+  wetNight: new THREE.Color("#414868"),
+  // The palm's own colours darken toward this at night
+  palmNight: new THREE.Color("#3d4468"),
+};
+
+// A lumpy, hand-shaped mound: a sphere pushed around by layered sine
+// noise, with per-vertex light/dark variation so the unlit surface
+// still reads as sand and not as a perfect plastic dome
+function makeIslandGeometry(seed: number): THREE.BufferGeometry {
+  const g = new THREE.SphereGeometry(1, 22, 14);
+  const pos = g.attributes.position;
+  const colors = new Float32Array(pos.count * 3);
+  const v = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v.fromBufferAttribute(pos, i);
+    const n =
+      Math.sin(v.x * 5.1 + v.z * 3.7 + seed) * 0.5 +
+      Math.sin(v.z * 7.3 - v.x * 2.2 + seed * 1.7) * 0.3 +
+      Math.sin(v.y * 6.1 + v.x * 4.4 + seed * 0.6) * 0.2;
+    v.multiplyScalar(1 + n * 0.13);
+    pos.setXYZ(i, v.x, v.y, v.z);
+    // Barely-there variation — any more reads as dirt on the sand
+    const shade = THREE.MathUtils.clamp(0.99 + n * 0.025, 0.96, 1.02);
+    colors[i * 3] = shade;
+    colors[i * 3 + 1] = shade;
+    colors[i * 3 + 2] = shade;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  g.computeVertexNormals();
+  return g;
+}
+
+// The island's home anchor; the gyroscope pushes it off this spot and
+// a soft spring always brings it back
+const ISLAND_HOME = { x: 3.4, z: -9 };
+
+function PalmIsland({
+  sky,
+  gyro,
+}: {
+  sky: MutableRefObject<SkyState>;
+  gyro: MutableRefObject<TiltState>;
+}) {
+  const bobRef = useRef<THREE.Group>(null);
+  const driftRef = useRef<THREE.Group>(null);
+  const palmSwayRef = useRef<THREE.Group>(null);
+  const driftSim = useRef({ x: ISLAND_HOME.x, vx: 0, z: ISLAND_HOME.z, vz: 0 });
+  const { scene } = useGLTF(PALM_MODEL);
+  const domeGeom = useMemo(() => makeIslandGeometry(0), []);
+  const ringGeom = useMemo(() => makeIslandGeometry(3.3), []);
+
+  // Clone the model and swap its lit materials for unlit ones that keep
+  // the asset's colours, remembering each daytime colour for tinting
+  const palm = useMemo(() => {
+    const clone = scene.clone(true);
+    const tints: { mat: THREE.MeshBasicMaterial; day: THREE.Color }[] = [];
+    let leaves: THREE.Object3D | null = null;
+    clone.traverse((o) => {
+      // The asset's root node ships with a baked world offset of
+      // (2.7, 0, -7.2) from its source kit grid — zero it out
+      if (o.name === "palm_detailed_short") o.position.set(0, 0, 0);
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const src = mesh.material as THREE.MeshStandardMaterial;
+      // The crown node pivots at the trunk top, so it can sway.
+      // Sink it a little into the trunk so the sway never opens a gap.
+      if (src.name === "leaves.002") {
+        leaves = mesh;
+        mesh.position.y -= 0.09;
+      }
+      const basic = new THREE.MeshBasicMaterial({ color: src.color.clone() });
+      mesh.material = basic;
+      tints.push({ mat: basic, day: src.color.clone() });
+    });
+    return { clone, tints, leaves: leaves as THREE.Object3D | null };
+  }, [scene]);
+
+  const sandMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({ color: "#ecd0a0", vertexColors: true }),
+    []
+  );
+  const wetMaterial = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({ color: "#c9ad82", vertexColors: true }),
+    []
+  );
+  const tmpColor = useMemo(() => new THREE.Color(), []);
+
+  useFrame((state, delta) => {
+    const s = sky.current;
+    const k = 1 - Math.exp(-2 * Math.min(delta, 0.05));
+    const tint = (
+      mat: THREE.MeshBasicMaterial,
+      day: THREE.Color,
+      night: THREE.Color
+    ) => {
+      // Day/night blend, plus a light kiss of horizon haze
+      tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.12);
+      mat.color.lerp(tmpColor, k);
+    };
+    tint(sandMaterial, ISLAND_TINTS.sandDay, ISLAND_TINTS.sandNight);
+    tint(wetMaterial, ISLAND_TINTS.wetDay, ISLAND_TINTS.wetNight);
+    for (const t of palm.tints) tint(t.mat, t.day, ISLAND_TINTS.palmNight);
+
+    // Ride the water: a clear bob and roll, like a boat on the swell
+    const t = state.clock.elapsedTime;
+    if (bobRef.current) {
+      bobRef.current.position.y =
+        Math.sin(t * 0.8) * 0.1 + Math.sin(t * 0.45 + 1.7) * 0.05;
+      bobRef.current.rotation.z = Math.sin(t * 0.6) * 0.09;
+      bobRef.current.rotation.x = Math.sin(t * 0.42 + 1.3) * 0.05;
+    }
+
+    // The whole tree sways from its base, lagging the island's roll
+    // like a pendulum, so it reads springy instead of welded on
+    if (palmSwayRef.current) {
+      palmSwayRef.current.rotation.z =
+        Math.sin(t * 0.6 - 0.8) * 0.05 + Math.sin(t * 1.15) * 0.025;
+      palmSwayRef.current.rotation.x =
+        Math.sin(t * 0.42 + 0.5) * 0.04 + Math.sin(t * 0.9 + 1.0) * 0.02;
+    }
+
+    // A light breeze in the crown, soft enough to stay seated
+    if (palm.leaves) {
+      palm.leaves.rotation.z = Math.sin(t * 1.3) * 0.035;
+      palm.leaves.rotation.x = Math.sin(t * 0.9 + 2.1) * 0.03;
+    }
+
+    // Gyro-driven drift: tilting the phone pushes the island off its
+    // home spot; a slow, soft spring glides it back when the phone
+    // rests. With no gyro (desktop) it stays anchored.
+    const g = gyro.current;
+    const d = driftSim.current;
+    const dt = Math.min(delta, 0.05);
+    let targetX = ISLAND_HOME.x;
+    let targetZ = ISLAND_HOME.z;
+    if (g.enabled) {
+      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30) / 30;
+      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30) / 30;
+      targetX += roll * 1.4;
+      targetZ += pitch * 2.0;
+    }
+    const stiffness = 3.5;
+    const damping = 1.8;
+    d.vx += (targetX - d.x) * stiffness * dt;
+    d.vx *= Math.exp(-damping * dt);
+    d.x += d.vx * dt;
+    d.vz += (targetZ - d.z) * stiffness * dt;
+    d.vz *= Math.exp(-damping * dt);
+    d.z += d.vz * dt;
+    if (driftRef.current) {
+      driftRef.current.position.x = d.x;
+      driftRef.current.position.z = d.z;
+    }
+  });
+
+  return (
+    <group ref={driftRef} position={[3.4, -1.74, -9]} scale={1.05}>
+      <group ref={bobRef}>
+        {/* Thin wet-sand sliver at the waterline, then the lumpy dome */}
+        <mesh
+          scale={[1.42, 0.3, 1.2]}
+          rotation={[0, 1.1, 0]}
+          geometry={ringGeom}
+          material={wetMaterial}
+        />
+        <mesh
+          position={[0, 0.12, 0]}
+          scale={[1.32, 0.58, 1.12]}
+          rotation={[0, 0.4, 0]}
+          geometry={domeGeom}
+          material={sandMaterial}
+        />
+
+        {/* Kenney palm, planted on the dome. The sway group pivots at
+            the trunk base; the inner offset cancels the model's baked
+            base offset (about -0.8, 0, 0.7) so the tree stands centred
+            and bends from where it meets the sand */}
+        <group ref={palmSwayRef} position={[0, 0.5, 0]}>
+          <primitive object={palm.clone} position={[0.8, 0, -0.7]} scale={1} />
+        </group>
+      </group>
+    </group>
+  );
+}
+
+// ── Sea sway – shared gyroscope tilt for the water AND the island ──
+// The phone rolls one way; the level sea counter-tilts through a damped
+// spring, and everything riding the water moves with it.
+function SeaSway({
+  gyro,
+  children,
+}: {
+  gyro: MutableRefObject<TiltState>;
+  children: ReactNode;
+}) {
+  const groupRef = useRef<THREE.Group>(null);
+  const sim = useRef({ angle: 0, angleVel: 0, off: 0, offVel: 0 });
+
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const g = gyro.current;
+    const s = sim.current;
+
+    let targetAngle = 0;
+    let targetOff = 0;
+    if (g.enabled) {
+      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30);
+      targetAngle = -THREE.MathUtils.degToRad(roll) * 0.45;
+      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30);
+      targetOff = (-pitch / 30) * 0.3;
+    }
+
+    const stiffness = 16;
+    const damping = 2.2;
+    s.angleVel += (targetAngle - s.angle) * stiffness * dt;
+    s.angleVel *= Math.exp(-damping * dt);
+    s.angle += s.angleVel * dt;
+    s.offVel += (targetOff - s.off) * stiffness * dt;
+    s.offVel *= Math.exp(-damping * dt);
+    s.off += s.offVel * dt;
+
+    if (groupRef.current) {
+      groupRef.current.rotation.z = s.angle;
+      groupRef.current.position.y = s.off;
+    }
+  });
+
+  return <group ref={groupRef}>{children}</group>;
+}
+
+// Base water colours; the sky's night factor blends between them
+const OCEAN_DAY = new THREE.Color("#7fd8ca");
+const OCEAN_NIGHT = new THREE.Color("#2a3b5e");
+
+function Ocean({ sky }: { sky: MutableRefObject<SkyState> }) {
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uCol: { value: OCEAN_DAY.clone() },
+      uLine: { value: new THREE.Color("#ffffff") },
+      uHor: { value: new THREE.Color("#e2f2fb") },
+    }),
+    []
+  );
+  // Scratch colour reused every frame, no per-frame allocation
+  const tmpColor = useMemo(() => new THREE.Color(), []);
+
+  useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const m = matRef.current;
+    if (m) {
+      m.uniforms.uTime.value = state.clock.elapsedTime;
+      const skyNow = sky.current;
+      const k = 1 - Math.exp(-2 * dt);
+      // Water: mint by day, deep indigo-teal by night, kissed by the sky
+      tmpColor
+        .copy(OCEAN_DAY)
+        .lerp(OCEAN_NIGHT, skyNow.night)
+        .lerp(skyNow.mid, 0.15);
+      (m.uniforms.uCol.value as THREE.Color).lerp(tmpColor, k);
+      (m.uniforms.uLine.value as THREE.Color).lerp(skyNow.light, k);
+      (m.uniforms.uHor.value as THREE.Color).lerp(skyNow.horizon, k);
+    }
+  });
+
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -60]}>
+      {/* Waves flatten beyond ~28 units, so a lean mesh is enough */}
+      <planeGeometry args={[220, 160, 120, 60]} />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={OCEAN_VERT}
+        fragmentShader={OCEAN_FRAG}
+        uniforms={uniforms}
+      />
+    </mesh>
+  );
+}
+
+// ── Main interactive magazine ──
+function RotatingMagazine({
+  frontCover,
+  backCover,
+  spineCover,
+  gyro,
+}: {
+  frontCover?: string;
+  backCover?: string;
+  spineCover?: string;
+  gyro: MutableRefObject<TiltState>;
+}) {
+  const wholeRef = useRef<THREE.Group>(null);
+  const smoothRotSpeed = useRef(0.5);
+  // Drag state so only touches that start ON the magazine rotate it —
+  // touches elsewhere fall through to normal page scrolling.
+  const drag = useRef({ active: false, lastX: 0, velocity: 0 });
 
   const handlePointerDown = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
@@ -294,10 +843,11 @@ function RotatingMagazine({
   const spineX = -(COVER_W / 2);
 
   return (
+    // Centred on the camera axis, well clear of the wave crests
     <group
       ref={wholeRef}
-      position={[0, 0, 0]}
-      scale={0.85}
+      position={[0, 0.95, 0]}
+      scale={1}
       onPointerDown={handlePointerDown}
     >
       {/* Spine */}
@@ -358,12 +908,23 @@ function MagazineScene({
   backCover?: string;
   spineCover?: string;
 }) {
+  const gyro = useDeviceTilt();
+  const sky = useOrangeCountySky();
+
   return (
-    <RotatingMagazine
-      frontCover={frontCover}
-      backCover={backCover}
-      spineCover={spineCover}
-    />
+    <>
+      <SkyBackdrop sky={sky} />
+      <SeaSway gyro={gyro}>
+        <PalmIsland sky={sky} gyro={gyro} />
+        <Ocean sky={sky} />
+      </SeaSway>
+      <RotatingMagazine
+        frontCover={frontCover}
+        backCover={backCover}
+        spineCover={spineCover}
+        gyro={gyro}
+      />
+    </>
   );
 }
 
@@ -377,24 +938,45 @@ export default function Magazine3D({
   backCover?: string;
   spineCover?: string;
 }) {
+  // Stop the whole render loop when the hero is scrolled out of view —
+  // zero GPU and CPU cost while the visitor reads the rest of the page
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.05 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <Canvas
-      dpr={[1, 1.5]}
-      gl={{
-        antialias: true,
-        alpha: true,
-        powerPreference: "low-power",
-        toneMapping: THREE.NoToneMapping,
-        outputColorSpace: THREE.LinearSRGBColorSpace,
-      }}
-      camera={{ position: [0, 0, 5], fov: 50 }}
-      style={{ width: "100%", height: "100%", touchAction: "pan-y" }}
-    >
-      <MagazineScene
-        frontCover={frontCover}
-        backCover={backCover}
-        spineCover={spineCover}
-      />
-    </Canvas>
+    <div ref={containerRef} className="h-full w-full">
+      <Canvas
+        frameloop={inView ? "always" : "never"}
+        dpr={[1, 1.5]}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "low-power",
+          toneMapping: THREE.NoToneMapping,
+          outputColorSpace: THREE.LinearSRGBColorSpace,
+        }}
+        // Gentle downward pitch: horizon sits just above the frame centre,
+        // so the water fills the lower half and the magazine centres
+        camera={{ position: [0, 1.2, 5], rotation: [-0.05, 0, 0], fov: 50 }}
+        style={{ width: "100%", height: "100%", touchAction: "pan-y" }}
+      >
+        <MagazineScene
+          frontCover={frontCover}
+          backCover={backCover}
+          spineCover={spineCover}
+        />
+      </Canvas>
+    </div>
   );
 }

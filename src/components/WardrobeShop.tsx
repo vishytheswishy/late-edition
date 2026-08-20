@@ -46,7 +46,7 @@ export default function WardrobeShop({ products }: WardrobeShopProps) {
   return (
     <div className="min-h-screen bg-white pt-16 md:pt-20">
       {/* ── Hero ── */}
-      <section className="relative w-full border-b border-black/10">
+      <section className="relative w-full">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center py-10 md:py-14">
             <motion.p

@@ -172,7 +172,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="w-full border-b border-black/10 bg-white" style={{ willChange: 'auto' }}>
+      <nav className="w-full border-b border-black/10 bg-white/60 backdrop-blur-xl" style={{ willChange: 'auto' }}>
         {/* ─── Desktop navbar (md+) ─── */}
         <div className="relative hidden md:flex items-center justify-between w-full px-6 py-8 lg:px-8">
           {/* Left side */}
