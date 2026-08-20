@@ -499,8 +499,12 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const src = mesh.material as THREE.MeshStandardMaterial;
-      // The crown node pivots at the trunk top, so it can sway
-      if (src.name === "leaves.002") leaves = mesh;
+      // The crown node pivots at the trunk top, so it can sway.
+      // Sink it a little into the trunk so the sway never opens a gap.
+      if (src.name === "leaves.002") {
+        leaves = mesh;
+        mesh.position.y -= 0.09;
+      }
       const basic = new THREE.MeshBasicMaterial({ color: src.color.clone() });
       mesh.material = basic;
       tints.push({ mat: basic, day: src.color.clone() });
@@ -543,10 +547,10 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
       bobRef.current.rotation.x = Math.sin(t * 0.42 + 1.3) * 0.05;
     }
 
-    // A light breeze in the crown
+    // A light breeze in the crown, soft enough to stay seated
     if (palm.leaves) {
-      palm.leaves.rotation.z = Math.sin(t * 1.3) * 0.06;
-      palm.leaves.rotation.x = Math.sin(t * 0.9 + 2.1) * 0.05;
+      palm.leaves.rotation.z = Math.sin(t * 1.3) * 0.035;
+      palm.leaves.rotation.x = Math.sin(t * 0.9 + 2.1) * 0.03;
     }
 
     // Slow wander: the island drifts on a bounded loop, starting and
