@@ -17,7 +17,6 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import * as THREE from "three";
-import { useGLTF } from "@react-three/drei";
 import { computeSkyPalette, orangeCountyHour } from "@/lib/skyPalette";
 
 if (typeof window !== "undefined") {
@@ -166,82 +165,6 @@ function PageBlock() {
       })}
     </group>
   );
-}
-
-// ── Shared device-tilt state ──
-type TiltState = {
-  enabled: boolean;
-  baseBeta: number;
-  baseGamma: number;
-  beta: number;
-  gamma: number;
-};
-
-// Device-tilt state: the first reading is the neutral pose, so everything
-// leans relative to how the phone was held on page load. One hook instance
-// feeds both the magazine and the water backdrop.
-function useDeviceTilt() {
-  const gyro = useRef<TiltState>({
-    enabled: false,
-    baseBeta: 0,
-    baseGamma: 0,
-    beta: 0,
-    gamma: 0,
-  });
-
-  useEffect(() => {
-    const handleOrientation = (e: DeviceOrientationEvent) => {
-      if (e.beta == null || e.gamma == null) return;
-      const g = gyro.current;
-      if (!g.enabled) {
-        g.enabled = true;
-        g.baseBeta = e.beta;
-        g.baseGamma = e.gamma;
-      }
-      g.beta = e.beta;
-      g.gamma = e.gamma;
-    };
-
-    const start = () =>
-      window.addEventListener("deviceorientation", handleOrientation);
-
-    // iOS 13+ requires a permission request from inside a user gesture
-    type DOEWithPermission = typeof DeviceOrientationEvent & {
-      requestPermission?: () => Promise<"granted" | "denied">;
-    };
-    const DOE =
-      typeof DeviceOrientationEvent !== "undefined"
-        ? (DeviceOrientationEvent as DOEWithPermission)
-        : null;
-
-    let removeGestureListeners: (() => void) | null = null;
-
-    if (DOE?.requestPermission) {
-      const ask = () => {
-        removeGestureListeners?.();
-        DOE.requestPermission!()
-          .then((res) => {
-            if (res === "granted") start();
-          })
-          .catch(() => {});
-      };
-      window.addEventListener("touchend", ask);
-      window.addEventListener("click", ask);
-      removeGestureListeners = () => {
-        window.removeEventListener("touchend", ask);
-        window.removeEventListener("click", ask);
-      };
-    } else if (DOE) {
-      start();
-    }
-
-    return () => {
-      window.removeEventListener("deviceorientation", handleOrientation);
-      removeGestureListeners?.();
-    };
-  }, []);
-
-  return gyro;
 }
 
 // ── Water backdrop – a glass half full that stays level as the phone tilts ──
@@ -472,274 +395,17 @@ function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
 }
 
 
-// ── Little floating island with a palm tree ──
-// The palm is "Palm Detailed Short" by Kenney (CC0), served from
-// public/models/palm.gltf via the pmndrs market-assets library.
-const PALM_MODEL = "/models/palm.gltf";
-useGLTF.preload(PALM_MODEL);
-
-const ISLAND_TINTS = {
-  sandDay: new THREE.Color("#ecd0a0"),
-  sandNight: new THREE.Color("#4a4a68"),
-  wetDay: new THREE.Color("#c9ad82"),
-  wetNight: new THREE.Color("#414868"),
-  // The palm's own colours darken toward this at night
-  palmNight: new THREE.Color("#3d4468"),
-};
-
-// A lumpy, hand-shaped mound: a sphere pushed around by layered sine
-// noise, with per-vertex light/dark variation so the unlit surface
-// still reads as sand and not as a perfect plastic dome
-function makeIslandGeometry(seed: number): THREE.BufferGeometry {
-  const g = new THREE.SphereGeometry(1, 22, 14);
-  const pos = g.attributes.position;
-  const colors = new Float32Array(pos.count * 3);
-  const v = new THREE.Vector3();
-  for (let i = 0; i < pos.count; i++) {
-    v.fromBufferAttribute(pos, i);
-    const n =
-      Math.sin(v.x * 5.1 + v.z * 3.7 + seed) * 0.5 +
-      Math.sin(v.z * 7.3 - v.x * 2.2 + seed * 1.7) * 0.3 +
-      Math.sin(v.y * 6.1 + v.x * 4.4 + seed * 0.6) * 0.2;
-    v.multiplyScalar(1 + n * 0.13);
-    pos.setXYZ(i, v.x, v.y, v.z);
-    // Barely-there variation — any more reads as dirt on the sand
-    const shade = THREE.MathUtils.clamp(0.99 + n * 0.025, 0.96, 1.02);
-    colors[i * 3] = shade;
-    colors[i * 3 + 1] = shade;
-    colors[i * 3 + 2] = shade;
-  }
-  g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  g.computeVertexNormals();
-  return g;
-}
-
-// The island's home anchor; the gyroscope pushes it off this spot and
-// a soft spring always brings it back
-const ISLAND_HOME = { x: 3.4, z: -9 };
-
-function PalmIsland({
-  sky,
-  gyro,
-}: {
-  sky: MutableRefObject<SkyState>;
-  gyro: MutableRefObject<TiltState>;
-}) {
-  const bobRef = useRef<THREE.Group>(null);
-  const driftRef = useRef<THREE.Group>(null);
-  const palmSwayRef = useRef<THREE.Group>(null);
-  const driftSim = useRef({ x: ISLAND_HOME.x, vx: 0, z: ISLAND_HOME.z, vz: 0 });
-  const { scene } = useGLTF(PALM_MODEL);
-  const domeGeom = useMemo(() => makeIslandGeometry(0), []);
-  const ringGeom = useMemo(() => makeIslandGeometry(3.3), []);
-
-  // Clone the model and swap its lit materials for unlit ones that keep
-  // the asset's colours, remembering each daytime colour for tinting
-  const palm = useMemo(() => {
-    const clone = scene.clone(true);
-    const tints: { mat: THREE.MeshBasicMaterial; day: THREE.Color }[] = [];
-    let leaves: THREE.Object3D | null = null;
-    clone.traverse((o) => {
-      // The asset's root node ships with a baked world offset of
-      // (2.7, 0, -7.2) from its source kit grid — zero it out
-      if (o.name === "palm_detailed_short") o.position.set(0, 0, 0);
-      const mesh = o as THREE.Mesh;
-      if (!mesh.isMesh) return;
-      const src = mesh.material as THREE.MeshStandardMaterial;
-      const isLeaves = src.name === "leaves.002";
-      if (isLeaves) {
-        // The crown node pivots at the trunk top, so it can sway.
-        // Sink it a little into the trunk so the sway never opens a gap.
-        leaves = mesh;
-        mesh.position.y -= 0.09;
-
-        // Paint leaflet structure straight into vertex colours (all
-        // local, no texture asset): stripes across each frond, deeper
-        // green toward the tips, lighter tops — so the crown reads as
-        // foliage instead of a flat green glob
-        const geo = (mesh.geometry as THREE.BufferGeometry).clone();
-        mesh.geometry = geo;
-        const posAttr = geo.attributes.position as THREE.BufferAttribute;
-        const cols = new Float32Array(posAttr.count * 3);
-        // A clean two-tone: sunlit tops, deeper tips. No banding — the
-        // mesh is too low-poly for stripes; they smear into blotches.
-        const deep = new THREE.Color("#5cab68");
-        const light = new THREE.Color("#96e381");
-        const c = new THREE.Color();
-        for (let i = 0; i < posAttr.count; i++) {
-          const x = posAttr.getX(i);
-          const y = posAttr.getY(i);
-          const z = posAttr.getZ(i);
-          const tip = THREE.MathUtils.clamp(Math.hypot(x, z) / 1.6, 0, 1);
-          const top = THREE.MathUtils.clamp(y * 1.8 + 0.5, 0, 1);
-          const f = THREE.MathUtils.clamp(
-            0.55 + top * 0.35 - tip * 0.3,
-            0,
-            1
-          );
-          c.copy(deep).lerp(light, f);
-          cols[i * 3] = c.r;
-          cols[i * 3 + 1] = c.g;
-          cols[i * 3 + 2] = c.b;
-        }
-        geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
-      }
-      // Leaves get white base so the vertex colours carry the green;
-      // the day/night tint multiplies on top for both cases
-      const day = isLeaves ? new THREE.Color("#ffffff") : src.color.clone();
-      const basic = new THREE.MeshBasicMaterial({
-        color: day.clone(),
-        vertexColors: isLeaves,
-      });
-      mesh.material = basic;
-      tints.push({ mat: basic, day });
-    });
-    return { clone, tints, leaves: leaves as THREE.Object3D | null };
-  }, [scene]);
-
-  const sandMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({ color: "#ecd0a0", vertexColors: true }),
-    []
-  );
-  const wetMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({ color: "#c9ad82", vertexColors: true }),
-    []
-  );
-  const tmpColor = useMemo(() => new THREE.Color(), []);
-
-  useFrame((state, delta) => {
-    const s = sky.current;
-    const k = 1 - Math.exp(-2 * Math.min(delta, 0.05));
-    const tint = (
-      mat: THREE.MeshBasicMaterial,
-      day: THREE.Color,
-      night: THREE.Color
-    ) => {
-      // Day/night blend, plus a light kiss of horizon haze
-      tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.12);
-      mat.color.lerp(tmpColor, k);
-    };
-    tint(sandMaterial, ISLAND_TINTS.sandDay, ISLAND_TINTS.sandNight);
-    tint(wetMaterial, ISLAND_TINTS.wetDay, ISLAND_TINTS.wetNight);
-    for (const t of palm.tints) tint(t.mat, t.day, ISLAND_TINTS.palmNight);
-
-    // Ride the water: a clear bob and roll, like a boat on the swell
-    const t = state.clock.elapsedTime;
-    if (bobRef.current) {
-      bobRef.current.position.y =
-        Math.sin(t * 0.8) * 0.1 + Math.sin(t * 0.45 + 1.7) * 0.05;
-      bobRef.current.rotation.z = Math.sin(t * 0.6) * 0.09;
-      bobRef.current.rotation.x = Math.sin(t * 0.42 + 1.3) * 0.05;
-    }
-
-    // The whole tree sways from its base, lagging the island's roll
-    // like a pendulum, so it reads springy instead of welded on
-    if (palmSwayRef.current) {
-      palmSwayRef.current.rotation.z =
-        Math.sin(t * 0.6 - 0.8) * 0.05 + Math.sin(t * 1.15) * 0.025;
-      palmSwayRef.current.rotation.x =
-        Math.sin(t * 0.42 + 0.5) * 0.04 + Math.sin(t * 0.9 + 1.0) * 0.02;
-    }
-
-    // A light breeze in the crown, soft enough to stay seated
-    if (palm.leaves) {
-      palm.leaves.rotation.z = Math.sin(t * 1.3) * 0.035;
-      palm.leaves.rotation.x = Math.sin(t * 0.9 + 2.1) * 0.03;
-    }
-
-    // Gyro-driven drift: tilting the phone pushes the island off its
-    // home spot; a slow, soft spring glides it back when the phone
-    // rests. With no gyro (desktop) it stays anchored.
-    const g = gyro.current;
-    const d = driftSim.current;
-    const dt = Math.min(delta, 0.05);
-    let targetX = ISLAND_HOME.x;
-    let targetZ = ISLAND_HOME.z;
-    if (g.enabled) {
-      // A subtle response: full tilt moves the island less than one
-      // unit — it leans with the hand, it does not race across the sea
-      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -25, 25) / 25;
-      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -25, 25) / 25;
-      targetX += roll * 0.6;
-      targetZ += pitch * 0.9;
-    }
-    // Soft spring: eases toward the target, glides home at rest
-    const stiffness = 6;
-    const damping = 2.2;
-    d.vx += (targetX - d.x) * stiffness * dt;
-    d.vx *= Math.exp(-damping * dt);
-    d.x += d.vx * dt;
-    d.vz += (targetZ - d.z) * stiffness * dt;
-    d.vz *= Math.exp(-damping * dt);
-    d.z += d.vz * dt;
-    if (driftRef.current) {
-      driftRef.current.position.x = d.x;
-      driftRef.current.position.z = d.z;
-    }
-  });
-
-  return (
-    <group ref={driftRef} position={[3.4, -1.74, -9]} scale={1.05}>
-      <group ref={bobRef}>
-        {/* Thin wet-sand sliver at the waterline, then the lumpy dome */}
-        <mesh
-          scale={[1.42, 0.3, 1.2]}
-          rotation={[0, 1.1, 0]}
-          geometry={ringGeom}
-          material={wetMaterial}
-        />
-        <mesh
-          position={[0, 0.12, 0]}
-          scale={[1.32, 0.58, 1.12]}
-          rotation={[0, 0.4, 0]}
-          geometry={domeGeom}
-          material={sandMaterial}
-        />
-
-        {/* Kenney palm, planted on the dome. The sway group pivots at
-            the trunk base; the inner offset cancels the model's baked
-            base offset (about -0.8, 0, 0.7) so the tree stands centred
-            and bends from where it meets the sand */}
-        <group ref={palmSwayRef} position={[0, 0.5, 0]}>
-          <primitive object={palm.clone} position={[0.8, 0, -0.7]} scale={1} />
-        </group>
-      </group>
-    </group>
-  );
-}
-
-// ── Sea sway – shared gyroscope tilt for the water AND the island ──
-// The phone rolls one way; the level sea counter-tilts through a damped
-// spring, and everything riding the water moves with it.
-function SeaSway({
-  gyro,
-  children,
-}: {
-  gyro: MutableRefObject<TiltState>;
-  children: ReactNode;
-}) {
+// ── Sea sway – a soft pointer-following tilt for the water ──
+function SeaSway({ children }: { children: ReactNode }) {
   const groupRef = useRef<THREE.Group>(null);
   const sim = useRef({ angle: 0, angleVel: 0, off: 0, offVel: 0 });
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
-    const g = gyro.current;
     const s = sim.current;
 
-    let targetAngle = 0;
-    let targetOff = 0;
-    if (g.enabled) {
-      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30);
-      targetAngle = -THREE.MathUtils.degToRad(roll) * 0.45;
-      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30);
-      targetOff = (-pitch / 30) * 0.3;
-    } else {
-      // No gyroscope (desktop): a soft sway follows the pointer
-      targetAngle = state.pointer.x * -0.05;
-      targetOff = state.pointer.y * 0.06;
-    }
+    const targetAngle = state.pointer.x * -0.05;
+    const targetOff = state.pointer.y * 0.06;
 
     const stiffness = 16;
     const damping = 2.2;
@@ -815,12 +481,10 @@ function RotatingMagazine({
   frontCover,
   backCover,
   spineCover,
-  gyro,
 }: {
   frontCover?: string;
   backCover?: string;
   spineCover?: string;
-  gyro: MutableRefObject<TiltState>;
 }) {
   const wholeRef = useRef<THREE.Group>(null);
   const smoothRotSpeed = useRef(0.5);
@@ -854,30 +518,6 @@ function RotatingMagazine({
   useFrame((_, delta) => {
     if (!wholeRef.current) return;
 
-    // Lean with the phone: beta (front/back tilt) drives X, gamma
-    // (left/right tilt) drives Z, clamped and smoothed so it stays subtle.
-    const g = gyro.current;
-    if (g.enabled) {
-      const tiltX =
-        THREE.MathUtils.degToRad(
-          THREE.MathUtils.clamp(g.beta - g.baseBeta, -35, 35)
-        ) * 0.45;
-      const tiltZ =
-        THREE.MathUtils.degToRad(
-          THREE.MathUtils.clamp(g.gamma - g.baseGamma, -35, 35)
-        ) * 0.45;
-      wholeRef.current.rotation.x = THREE.MathUtils.lerp(
-        wholeRef.current.rotation.x,
-        tiltX,
-        0.08
-      );
-      wholeRef.current.rotation.z = THREE.MathUtils.lerp(
-        wholeRef.current.rotation.z,
-        -tiltZ,
-        0.08
-      );
-    }
-
     if (drag.current.active) return;
     // Flick inertia decays back into the idle auto-rotation
     drag.current.velocity *= 0.95;
@@ -892,7 +532,7 @@ function RotatingMagazine({
     <group
       ref={wholeRef}
       position={[0, 0.95, 0]}
-      scale={1}
+      scale={0.85}
       onPointerDown={handlePointerDown}
     >
       {/* Spine */}
@@ -953,21 +593,18 @@ function MagazineScene({
   backCover?: string;
   spineCover?: string;
 }) {
-  const gyro = useDeviceTilt();
   const sky = useOrangeCountySky();
 
   return (
     <>
       <SkyBackdrop sky={sky} />
-      <SeaSway gyro={gyro}>
-        <PalmIsland sky={sky} gyro={gyro} />
+      <SeaSway>
         <Ocean sky={sky} />
       </SeaSway>
       <RotatingMagazine
         frontCover={frontCover}
         backCover={backCover}
         spineCover={spineCover}
-        gyro={gyro}
       />
     </>
   );
