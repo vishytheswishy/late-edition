@@ -503,7 +503,8 @@ function makeIslandGeometry(seed: number): THREE.BufferGeometry {
       Math.sin(v.y * 6.1 + v.x * 4.4 + seed * 0.6) * 0.2;
     v.multiplyScalar(1 + n * 0.13);
     pos.setXYZ(i, v.x, v.y, v.z);
-    const shade = THREE.MathUtils.clamp(0.94 + n * 0.1, 0.82, 1.05);
+    // Barely-there variation — any more reads as dirt on the sand
+    const shade = THREE.MathUtils.clamp(0.99 + n * 0.025, 0.96, 1.02);
     colors[i * 3] = shade;
     colors[i * 3 + 1] = shade;
     colors[i * 3 + 2] = shade;
