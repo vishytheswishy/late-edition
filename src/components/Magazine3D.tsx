@@ -530,17 +530,18 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
     tint(wetMaterial, ISLAND_TINTS.wetDay, ISLAND_TINTS.wetNight);
     for (const t of palm.tints) tint(t.mat, t.day, ISLAND_TINTS.palmNight);
 
-    // Ride the water: a light, happy bob and sway
+    // Ride the water: a clear bob and roll, like a boat on the swell
     const t = state.clock.elapsedTime;
     if (bobRef.current) {
-      bobRef.current.position.y = Math.sin(t * 0.7) * 0.06;
-      bobRef.current.rotation.z = Math.sin(t * 0.5) * 0.05;
-      bobRef.current.rotation.x = Math.sin(t * 0.36 + 1.3) * 0.03;
+      bobRef.current.position.y =
+        Math.sin(t * 0.8) * 0.1 + Math.sin(t * 0.45 + 1.7) * 0.05;
+      bobRef.current.rotation.z = Math.sin(t * 0.6) * 0.09;
+      bobRef.current.rotation.x = Math.sin(t * 0.42 + 1.3) * 0.05;
     }
   });
 
   return (
-    <group position={[4.2, -1.74, -13]} scale={0.85}>
+    <group position={[3.2, -1.74, -9]} scale={1.05}>
       <group ref={bobRef}>
         {/* Thin wet-sand sliver at the waterline, then the dry dome */}
         <mesh scale={[1.42, 0.3, 1.2]} material={wetMaterial}>

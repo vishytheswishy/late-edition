@@ -58,7 +58,7 @@ export default function BombClock({
     <div className="flex items-center gap-1.5 select-none font-mono">
       {/* Location */}
       <p
-        className="text-[11px] md:text-xs uppercase tracking-wider font-medium"
+        className="text-[13px] md:text-sm uppercase tracking-wider font-medium"
         style={{ color: accent }}
       >
         Orange County, CA
@@ -66,19 +66,19 @@ export default function BombClock({
 
       {/* Time */}
       <div className="flex items-center leading-none">
-        <span className="text-[11px] md:text-xs font-bold tabular-nums" style={digitStyle}>
+        <span className="text-[13px] md:text-sm font-bold tabular-nums" style={digitStyle}>
           {hours}
         </span>
-        <span className="text-[11px] md:text-xs font-bold" style={colonStyle}>
+        <span className="text-[13px] md:text-sm font-bold" style={colonStyle}>
           :
         </span>
-        <span className="text-[11px] md:text-xs font-bold tabular-nums" style={digitStyle}>
+        <span className="text-[13px] md:text-sm font-bold tabular-nums" style={digitStyle}>
           {minutes}
         </span>
-        <span className="text-[11px] md:text-xs font-bold" style={colonStyle}>
+        <span className="text-[13px] md:text-sm font-bold" style={colonStyle}>
           :
         </span>
-        <span className="text-[11px] md:text-xs font-bold tabular-nums" style={digitStyle}>
+        <span className="text-[13px] md:text-sm font-bold tabular-nums" style={digitStyle}>
           {seconds}
         </span>
       </div>
