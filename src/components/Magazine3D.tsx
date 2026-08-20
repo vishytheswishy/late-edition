@@ -490,6 +490,9 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
     const clone = scene.clone(true);
     const tints: { mat: THREE.MeshBasicMaterial; day: THREE.Color }[] = [];
     clone.traverse((o) => {
+      // The asset's root node ships with a baked world offset of
+      // (2.7, 0, -7.2) from its source kit grid — zero it out
+      if (o.name === "palm_detailed_short") o.position.set(0, 0, 0);
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const src = mesh.material as THREE.MeshStandardMaterial;
@@ -550,12 +553,13 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
           <sphereGeometry args={[1, 24, 16]} />
         </mesh>
 
-        {/* Kenney palm, planted on the dome */}
+        {/* Kenney palm, planted on the dome. The position cancels the
+            trunk's remaining base offset (about -0.8, 0, 0.7) so the
+            tree stands at the dome's centre */}
         <primitive
           object={palm.clone}
-          position={[-0.2, 0.52, 0]}
-          scale={1.5}
-          rotation={[0, 0.6, 0]}
+          position={[0.8, 0.5, -0.7]}
+          scale={1}
         />
       </group>
     </group>
