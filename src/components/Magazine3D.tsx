@@ -514,9 +514,20 @@ function makeIslandGeometry(seed: number): THREE.BufferGeometry {
   return g;
 }
 
-function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
+// The island's home anchor; the gyroscope pushes it off this spot and
+// a soft spring always brings it back
+const ISLAND_HOME = { x: 3.4, z: -9 };
+
+function PalmIsland({
+  sky,
+  gyro,
+}: {
+  sky: MutableRefObject<SkyState>;
+  gyro: MutableRefObject<TiltState>;
+}) {
   const bobRef = useRef<THREE.Group>(null);
   const driftRef = useRef<THREE.Group>(null);
+  const driftSim = useRef({ x: ISLAND_HOME.x, vx: 0, z: ISLAND_HOME.z, vz: 0 });
   const { scene } = useGLTF(PALM_MODEL);
   const domeGeom = useMemo(() => makeIslandGeometry(0), []);
   const ringGeom = useMemo(() => makeIslandGeometry(3.3), []);
@@ -590,11 +601,31 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
       palm.leaves.rotation.x = Math.sin(t * 0.9 + 2.1) * 0.03;
     }
 
-    // Slow wander: the island drifts on a bounded loop, starting and
-    // staying on the right side of the frame
+    // Gyro-driven drift: tilting the phone pushes the island off its
+    // home spot; a slow, soft spring glides it back when the phone
+    // rests. With no gyro (desktop) it stays anchored.
+    const g = gyro.current;
+    const d = driftSim.current;
+    const dt = Math.min(delta, 0.05);
+    let targetX = ISLAND_HOME.x;
+    let targetZ = ISLAND_HOME.z;
+    if (g.enabled) {
+      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30) / 30;
+      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30) / 30;
+      targetX += roll * 1.4;
+      targetZ += pitch * 2.0;
+    }
+    const stiffness = 3.5;
+    const damping = 1.8;
+    d.vx += (targetX - d.x) * stiffness * dt;
+    d.vx *= Math.exp(-damping * dt);
+    d.x += d.vx * dt;
+    d.vz += (targetZ - d.z) * stiffness * dt;
+    d.vz *= Math.exp(-damping * dt);
+    d.z += d.vz * dt;
     if (driftRef.current) {
-      driftRef.current.position.x = 3.4 + Math.sin(t * 0.12) * 1.1;
-      driftRef.current.position.z = -9 + Math.sin(t * 0.09 + 1.0) * 2.2;
+      driftRef.current.position.x = d.x;
+      driftRef.current.position.z = d.z;
     }
   });
 
@@ -875,7 +906,7 @@ function MagazineScene({
     <>
       <SkyBackdrop sky={sky} />
       <SeaSway gyro={gyro}>
-        <PalmIsland sky={sky} />
+        <PalmIsland sky={sky} gyro={gyro} />
         <Ocean sky={sky} />
       </SeaSway>
       <RotatingMagazine
