@@ -56,7 +56,7 @@ function Spine({ spineTexture }: { spineTexture?: string }) {
     const edge = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     const face = new THREE.MeshBasicMaterial({
       map: texture || undefined,
-      color: texture ? "#e2e2e2" : PAGE_COLOR,
+      color: texture ? "#ffffff" : PAGE_COLOR,
     });
     // +x, -x, +y, -y, +z, -z  →  -x faces outward
     return [edge, face, edge, edge, edge, edge];
@@ -77,8 +77,7 @@ function FrontCover({ coverTexture }: { coverTexture?: string }) {
     const edge = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     const outside = new THREE.MeshBasicMaterial({
       map: texture || undefined,
-      // A touch below white so the cover sits into the scene light
-      color: "#e2e2e2",
+      color: "#ffffff",
     });
     const inside = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     // +x, -x, +y, -y, +z (outside), -z (inside)
@@ -101,7 +100,7 @@ function BackCover({ coverTexture }: { coverTexture?: string }) {
     const inside = new THREE.MeshBasicMaterial({ color: PAGE_COLOR });
     const outside = new THREE.MeshBasicMaterial({
       map: texture || undefined,
-      color: texture ? "#e2e2e2" : "#f0f0f0",
+      color: texture ? "#ffffff" : "#f0f0f0",
     });
     // +z inside, -z outside
     return [edge, edge, edge, edge, inside, outside];
