@@ -2,6 +2,7 @@
 
 import LookbookLayout from "./LookbookLayout";
 import Events from "./Events";
+import PortraitLock from "./PortraitLock";
 import { useState, useEffect } from "react";
 import type { EventMeta } from "@/lib/events";
 
@@ -40,6 +41,8 @@ export default function Home({
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Homepage only: phones turned to landscape get a rotate card */}
+      <PortraitLock />
       {/* Shorter than the viewport on mobile so the events section peeks
           above the fold and it is clear the page scrolls */}
       {/* Mobile: the scene runs full-bleed under the glass navbar

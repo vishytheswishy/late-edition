@@ -8,6 +8,7 @@ import { CartProvider } from "@/context/CartContext";
 import CartDrawer from "@/components/CartDrawer";
 import { MusicPlayerProvider } from "@/context/MusicPlayerContext";
 import GlobalMiniPlayer from "@/components/GlobalMiniPlayer";
+import { Analytics } from "@vercel/analytics/next";
 export const metadata: Metadata = {
   title: "Late Edition",
   description: "Late Edition",
@@ -32,6 +33,7 @@ export default function RootLayout({
             <GlobalMiniPlayer />
           </MusicPlayerProvider>
         </CartProvider>
+        <Analytics />
       </body>
     </html>
   );
