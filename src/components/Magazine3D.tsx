@@ -15,6 +15,7 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import * as THREE from "three";
+import { useGLTF } from "@react-three/drei";
 import { computeSkyPalette, orangeCountyHour } from "@/lib/skyPalette";
 
 if (typeof window !== "undefined") {
@@ -465,88 +466,42 @@ function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
 
 
 // ── Little floating island with a palm tree ──
+// The palm is "Palm Detailed Short" by Kenney (CC0), served from
+// public/models/palm.gltf via the pmndrs market-assets library.
+const PALM_MODEL = "/models/palm.gltf";
+useGLTF.preload(PALM_MODEL);
+
 const ISLAND_TINTS = {
   sandDay: new THREE.Color("#ecd0a0"),
   sandNight: new THREE.Color("#4a4a68"),
   wetDay: new THREE.Color("#c9ad82"),
   wetNight: new THREE.Color("#414868"),
-  trunkDay: new THREE.Color("#9c6b46"),
-  trunkNight: new THREE.Color("#3d3b58"),
-  leafDay: new THREE.Color("#5fae5f"),
-  leafNight: new THREE.Color("#35486a"),
-  nutDay: new THREE.Color("#6b4a30"),
-  nutNight: new THREE.Color("#332f4c"),
+  // The palm's own colours darken toward this at night
+  palmNight: new THREE.Color("#3d4468"),
 };
-
-// A palm frond blade: a drooping tapered strip with a centre crease
-function makeFrondGeometry(): THREE.BufferGeometry {
-  const SEG = 10;
-  const pos: number[] = [];
-  const idx: number[] = [];
-  for (let i = 0; i <= SEG; i++) {
-    const s = i / SEG;
-    const x = s;
-    const y = -0.55 * s * s; // droop
-    const w = 0.13 * (1 - s * s) + 0.008; // taper
-    pos.push(x, y - 0.035, -w); // left edge
-    pos.push(x, y + 0.035, 0); // raised crease
-    pos.push(x, y - 0.035, w); // right edge
-  }
-  for (let i = 0; i < SEG; i++) {
-    const a = i * 3;
-    idx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4);
-    idx.push(a + 1, a + 4, a + 2, a + 2, a + 4, a + 5);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-  g.setIndex(idx);
-  g.computeVertexNormals();
-  return g;
-}
-
-// Trunk: short and chubby, stacked tapered rings with a gentle lean
-const TRUNK_RINGS = Array.from({ length: 6 }, (_, i) => {
-  const u = i / 6;
-  const u1 = (i + 1) / 6;
-  const H = 1.0;
-  return {
-    y: ((u + u1) / 2) * H,
-    x: 0.2 * ((u + u1) / 2) ** 2,
-    tilt: -Math.atan(0.4 * ((u + u1) / 2)),
-    rBot: 0.085 * (1 - 0.4 * u) * (i % 2 === 0 ? 1.18 : 1.0),
-    rTop: 0.085 * (1 - 0.4 * u1),
-    h: H / 6 + 0.012,
-  };
-});
-
-// Fronds: a fluffy round crown of short, wide, well-drooped blades
-const FROND_SET = Array.from({ length: 9 }, (_, i) => {
-  const a = (i / 9) * Math.PI * 2 + (i % 2) * 0.25;
-  return {
-    yaw: a,
-    len: 0.68 + (i % 3) * 0.1,
-    droop: 0.75 + (i % 2) * 0.3,
-  };
-});
 
 function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   const bobRef = useRef<THREE.Group>(null);
-  const frondGeom = useMemo(() => makeFrondGeometry(), []);
+  const { scene } = useGLTF(PALM_MODEL);
+
+  // Clone the model and swap its lit materials for unlit ones that keep
+  // the asset's colours, remembering each daytime colour for tinting
+  const palm = useMemo(() => {
+    const clone = scene.clone(true);
+    const tints: { mat: THREE.MeshBasicMaterial; day: THREE.Color }[] = [];
+    clone.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      const src = mesh.material as THREE.MeshStandardMaterial;
+      const basic = new THREE.MeshBasicMaterial({ color: src.color.clone() });
+      mesh.material = basic;
+      tints.push({ mat: basic, day: src.color.clone() });
+    });
+    return { clone, tints };
+  }, [scene]);
+
   const sandMaterial = useMemo(
     () => new THREE.MeshBasicMaterial({ color: "#ecd0a0" }),
-    []
-  );
-  const trunkMaterial = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: "#9c6b46" }),
-    []
-  );
-  const leafMaterial = useMemo(
-    () =>
-      new THREE.MeshBasicMaterial({ color: "#5fae5f", side: THREE.DoubleSide }),
-    []
-  );
-  const nutMaterial = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: "#6b4a30" }),
     []
   );
   const wetMaterial = useMemo(
@@ -563,16 +518,13 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
       day: THREE.Color,
       night: THREE.Color
     ) => {
-      // Day/night blend, then pushed into the horizon haze
-      // Closer to the camera now, so only a light kiss of horizon haze
+      // Day/night blend, plus a light kiss of horizon haze
       tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.12);
       mat.color.lerp(tmpColor, k);
     };
     tint(sandMaterial, ISLAND_TINTS.sandDay, ISLAND_TINTS.sandNight);
-    tint(trunkMaterial, ISLAND_TINTS.trunkDay, ISLAND_TINTS.trunkNight);
-    tint(leafMaterial, ISLAND_TINTS.leafDay, ISLAND_TINTS.leafNight);
-    tint(nutMaterial, ISLAND_TINTS.nutDay, ISLAND_TINTS.nutNight);
     tint(wetMaterial, ISLAND_TINTS.wetDay, ISLAND_TINTS.wetNight);
+    for (const t of palm.tints) tint(t.mat, t.day, ISLAND_TINTS.palmNight);
 
     // Ride the water: a light, happy bob and sway
     const t = state.clock.elapsedTime;
@@ -598,39 +550,13 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
           <sphereGeometry args={[1, 24, 16]} />
         </mesh>
 
-        {/* Palm */}
-        <group position={[-0.25, 0.6, 0]}>
-          {TRUNK_RINGS.map((r, i) => (
-            <mesh
-              key={i}
-              position={[r.x, r.y, 0]}
-              rotation={[0, 0, r.tilt]}
-              material={trunkMaterial}
-            >
-              <cylinderGeometry args={[r.rTop, r.rBot, r.h, 7]} />
-            </mesh>
-          ))}
-
-          {/* Fluffy crown at the trunk tip */}
-          <group position={[0.22, 1.04, 0]}>
-            {FROND_SET.map((f, i) => (
-              <mesh
-                key={i}
-                geometry={frondGeom}
-                material={leafMaterial}
-                rotation={[0, f.yaw, 0]}
-                scale={[f.len, f.droop, 1.35]}
-              />
-            ))}
-            {/* Chunky coconuts */}
-            <mesh position={[0.08, -0.07, 0.05]} material={nutMaterial}>
-              <sphereGeometry args={[0.07, 10, 8]} />
-            </mesh>
-            <mesh position={[-0.06, -0.09, -0.05]} material={nutMaterial}>
-              <sphereGeometry args={[0.06, 10, 8]} />
-            </mesh>
-          </group>
-        </group>
+        {/* Kenney palm, planted on the dome */}
+        <primitive
+          object={palm.clone}
+          position={[-0.2, 0.52, 0]}
+          scale={1.5}
+          rotation={[0, 0.6, 0]}
+        />
       </group>
     </group>
   );
