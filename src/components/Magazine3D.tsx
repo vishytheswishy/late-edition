@@ -3,7 +3,6 @@
 import {
   useRef,
   useEffect,
-  useCallback,
   Suspense,
   useMemo,
   type MutableRefObject,
@@ -375,32 +374,16 @@ function computeSky(hf: number): SkyState {
 }
 
 // One shared sky state, refreshed every 10 s so you can sit and watch
-// the sunrise or the sunset happen. cycleTime jumps 3 hours per call
-// (clicking the island) to preview other times of day; a full loop
-// returns to the real clock.
+// the sunrise or the sunset happen.
 function useOrangeCountySky() {
   const sky = useRef<SkyState>(computeSky(orangeCountyHour()));
-  const offset = useRef(0);
-
-  const refresh = useCallback(() => {
-    sky.current = computeSky((orangeCountyHour() + offset.current) % 24);
-  }, []);
-
   useEffect(() => {
-    const id = setInterval(refresh, 10000);
+    const id = setInterval(() => {
+      sky.current = computeSky(orangeCountyHour());
+    }, 10000);
     return () => clearInterval(id);
-  }, [refresh]);
-
-  const cycleTime = useCallback(() => {
-    offset.current = (offset.current + 3) % 24;
-    refresh();
-    // Tell the HTML overlay so the label colours preview the same hour
-    window.dispatchEvent(
-      new CustomEvent("lateedition:sky-offset", { detail: offset.current })
-    );
-  }, [refresh]);
-
-  return { sky, cycleTime };
+  }, []);
+  return sky;
 }
 
 // Sizes a plane at the given z so it always fills the whole view
@@ -544,13 +527,7 @@ const FROND_SET = Array.from({ length: 9 }, (_, i) => {
   };
 });
 
-function PalmIsland({
-  sky,
-  onCycle,
-}: {
-  sky: MutableRefObject<SkyState>;
-  onCycle: () => void;
-}) {
+function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   const bobRef = useRef<THREE.Group>(null);
   const frondGeom = useMemo(() => makeFrondGeometry(), []);
   const sandMaterial = useMemo(
@@ -601,15 +578,7 @@ function PalmIsland({
 
   return (
     <group position={[4.2, -1.62, -13]} scale={0.85}>
-      <group
-        ref={bobRef}
-        onClick={(e) => {
-          e.stopPropagation();
-          onCycle();
-        }}
-        onPointerOver={() => (document.body.style.cursor = "pointer")}
-        onPointerOut={() => (document.body.style.cursor = "auto")}
-      >
+      <group ref={bobRef}>
         {/* Wet sand ring at the waterline, then a round dry dome */}
         <mesh scale={[1.65, 0.38, 1.4]} material={nutMaterial}>
           <sphereGeometry args={[1, 24, 12]} />
@@ -828,11 +797,10 @@ function RotatingMagazine({
   const spineX = -(COVER_W / 2);
 
   return (
-    // Raised so the bottom corner clears the wave crests even at full
-    // gyro tilt (corner ≈ -1.07 vs crest ≈ -1.2)
+    // Centred on the camera axis, well clear of the wave crests
     <group
       ref={wholeRef}
-      position={[0, 0.55, 0]}
+      position={[0, 0.95, 0]}
       scale={1}
       onPointerDown={handlePointerDown}
     >
@@ -895,12 +863,12 @@ function MagazineScene({
   spineCover?: string;
 }) {
   const gyro = useDeviceTilt();
-  const { sky, cycleTime } = useOrangeCountySky();
+  const sky = useOrangeCountySky();
 
   return (
     <>
       <SkyBackdrop sky={sky} />
-      <PalmIsland sky={sky} onCycle={cycleTime} />
+      <PalmIsland sky={sky} />
       <Ocean gyro={gyro} sky={sky} />
       <RotatingMagazine
         frontCover={frontCover}
@@ -932,7 +900,9 @@ export default function Magazine3D({
         toneMapping: THREE.NoToneMapping,
         outputColorSpace: THREE.LinearSRGBColorSpace,
       }}
-      camera={{ position: [0, 1.2, 5], rotation: [-0.18, 0, 0], fov: 50 }}
+      // Gentle downward pitch: horizon sits just above the frame centre,
+      // so the water fills the lower half and the magazine centres
+      camera={{ position: [0, 1.2, 5], rotation: [-0.05, 0, 0], fov: 50 }}
       style={{ width: "100%", height: "100%", touchAction: "pan-y" }}
     >
       <MagazineScene

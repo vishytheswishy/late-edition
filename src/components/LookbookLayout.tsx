@@ -53,24 +53,11 @@ export default function LookbookLayout({ images }: { images: string[] }) {
   });
 
   useEffect(() => {
-    // Clicking the island shifts the scene's preview hour; it announces
-    // the offset so these labels track the same sky
-    let offset = 0;
     const update = () =>
-      setOverlay(
-        skyTextColors(computeSkyPalette((orangeCountyHour() + offset) % 24))
-      );
+      setOverlay(skyTextColors(computeSkyPalette(orangeCountyHour())));
     update();
     const id = setInterval(update, 30000);
-    const onOffset = (e: Event) => {
-      offset = (e as CustomEvent<number>).detail ?? 0;
-      update();
-    };
-    window.addEventListener("lateedition:sky-offset", onOffset);
-    return () => {
-      clearInterval(id);
-      window.removeEventListener("lateedition:sky-offset", onOffset);
-    };
+    return () => clearInterval(id);
   }, []);
 
   const handleExplore = () => {
