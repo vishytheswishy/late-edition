@@ -3,6 +3,7 @@
 import {
   useRef,
   useEffect,
+  useState,
   Suspense,
   useMemo,
   type MutableRefObject,
@@ -319,15 +320,21 @@ const OCEAN_FRAG = /* glsl */ `
     vec2 p = vWorld.xz;
     float t = uTime * 0.4;
 
-    // Two caustic webs at different scales and speeds
-    float lines = 1.0 - smoothstep(0.0, 0.07, caustic(p * 1.4, t));
-    float lines2 = 1.0 - smoothstep(0.0, 0.11, caustic(p * 0.55 + 31.7, t * 0.6));
-
     // Distance from the camera drives the misty horizon fade; far away
     // the water becomes exactly the sky's horizon colour, so the two
     // surfaces meet without a seam
     float dist = length(vWorld - cameraPosition);
     float fade = smoothstep(8.0, 70.0, dist);
+
+    // Fully hazed pixels need no caustic work at all
+    if (fade > 0.995) {
+      gl_FragColor = vec4(uHor, 1.0);
+      return;
+    }
+
+    // Two caustic webs at different scales and speeds
+    float lines = 1.0 - smoothstep(0.0, 0.07, caustic(p * 1.4, t));
+    float lines2 = 1.0 - smoothstep(0.0, 0.11, caustic(p * 0.55 + 31.7, t * 0.6));
 
     // Crests catch the light, troughs sit deeper
     vec3 col = uCol * (1.0 + vWave * 0.5);
@@ -672,7 +679,8 @@ function Ocean({ sky }: { sky: MutableRefObject<SkyState> }) {
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -60]}>
-      <planeGeometry args={[220, 160, 200, 90]} />
+      {/* Waves flatten beyond ~28 units, so a lean mesh is enough */}
+      <planeGeometry args={[220, 160, 120, 60]} />
       <shaderMaterial
         ref={matRef}
         vertexShader={OCEAN_VERT}
@@ -856,26 +864,45 @@ export default function Magazine3D({
   backCover?: string;
   spineCover?: string;
 }) {
+  // Stop the whole render loop when the hero is scrolled out of view —
+  // zero GPU and CPU cost while the visitor reads the rest of the page
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.05 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <Canvas
-      dpr={[1, 1.5]}
-      gl={{
-        antialias: true,
-        alpha: true,
-        powerPreference: "low-power",
-        toneMapping: THREE.NoToneMapping,
-        outputColorSpace: THREE.LinearSRGBColorSpace,
-      }}
-      // Gentle downward pitch: horizon sits just above the frame centre,
-      // so the water fills the lower half and the magazine centres
-      camera={{ position: [0, 1.2, 5], rotation: [-0.05, 0, 0], fov: 50 }}
-      style={{ width: "100%", height: "100%", touchAction: "pan-y" }}
-    >
-      <MagazineScene
-        frontCover={frontCover}
-        backCover={backCover}
-        spineCover={spineCover}
-      />
-    </Canvas>
+    <div ref={containerRef} className="h-full w-full">
+      <Canvas
+        frameloop={inView ? "always" : "never"}
+        dpr={[1, 1.5]}
+        gl={{
+          antialias: true,
+          alpha: true,
+          powerPreference: "low-power",
+          toneMapping: THREE.NoToneMapping,
+          outputColorSpace: THREE.LinearSRGBColorSpace,
+        }}
+        // Gentle downward pitch: horizon sits just above the frame centre,
+        // so the water fills the lower half and the magazine centres
+        camera={{ position: [0, 1.2, 5], rotation: [-0.05, 0, 0], fov: 50 }}
+        style={{ width: "100%", height: "100%", touchAction: "pan-y" }}
+      >
+        <MagazineScene
+          frontCover={frontCover}
+          backCover={backCover}
+          spineCover={spineCover}
+        />
+      </Canvas>
+    </div>
   );
 }
