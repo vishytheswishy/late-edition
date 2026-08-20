@@ -3,6 +3,7 @@
 import {
   useRef,
   useEffect,
+  useCallback,
   Suspense,
   useMemo,
   type MutableRefObject,
@@ -373,16 +374,32 @@ function computeSky(hf: number): SkyState {
 }
 
 // One shared sky state, refreshed every 10 s so you can sit and watch
-// the sunrise or the sunset happen.
+// the sunrise or the sunset happen. cycleTime jumps 3 hours per call
+// (clicking the island) to preview other times of day; a full loop
+// returns to the real clock.
 function useOrangeCountySky() {
   const sky = useRef<SkyState>(computeSky(orangeCountyHour()));
-  useEffect(() => {
-    const id = setInterval(() => {
-      sky.current = computeSky(orangeCountyHour());
-    }, 10000);
-    return () => clearInterval(id);
+  const offset = useRef(0);
+
+  const refresh = useCallback(() => {
+    sky.current = computeSky((orangeCountyHour() + offset.current) % 24);
   }, []);
-  return sky;
+
+  useEffect(() => {
+    const id = setInterval(refresh, 10000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
+  const cycleTime = useCallback(() => {
+    offset.current = (offset.current + 3) % 24;
+    refresh();
+    // Tell the HTML overlay so the label colours preview the same hour
+    window.dispatchEvent(
+      new CustomEvent("lateedition:sky-offset", { detail: offset.current })
+    );
+  }, [refresh]);
+
+  return { sky, cycleTime };
 }
 
 // Sizes a plane at the given z so it always fills the whole view
@@ -463,79 +480,180 @@ function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
 }
 
 
-// ── Little island with a palm tree, off on the horizon ──
+// ── Little floating island with a palm tree ──
 const ISLAND_TINTS = {
   sandDay: new THREE.Color("#ecd0a0"),
   sandNight: new THREE.Color("#4a4a68"),
-  trunkDay: new THREE.Color("#a1704f"),
+  trunkDay: new THREE.Color("#9c6b46"),
   trunkNight: new THREE.Color("#3d3b58"),
-  leafDay: new THREE.Color("#7fbf6e"),
+  leafDay: new THREE.Color("#5fae5f"),
   leafNight: new THREE.Color("#35486a"),
+  nutDay: new THREE.Color("#6b4a30"),
+  nutNight: new THREE.Color("#332f4c"),
 };
 
-function Island({ sky }: { sky: MutableRefObject<SkyState> }) {
-  const sandMat = useRef<THREE.MeshBasicMaterial>(null);
-  const trunkMat = useRef<THREE.MeshBasicMaterial>(null);
-  // One shared leaf material so every frond tints together
+// A palm frond blade: a drooping tapered strip with a centre crease
+function makeFrondGeometry(): THREE.BufferGeometry {
+  const SEG = 10;
+  const pos: number[] = [];
+  const idx: number[] = [];
+  for (let i = 0; i <= SEG; i++) {
+    const s = i / SEG;
+    const x = s;
+    const y = -0.55 * s * s; // droop
+    const w = 0.13 * (1 - s * s) + 0.008; // taper
+    pos.push(x, y - 0.035, -w); // left edge
+    pos.push(x, y + 0.035, 0); // raised crease
+    pos.push(x, y - 0.035, w); // right edge
+  }
+  for (let i = 0; i < SEG; i++) {
+    const a = i * 3;
+    idx.push(a, a + 3, a + 1, a + 1, a + 3, a + 4);
+    idx.push(a + 1, a + 4, a + 2, a + 2, a + 4, a + 5);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+// Trunk: stacked tapered rings following a gentle lean, like a real palm
+const TRUNK_RINGS = Array.from({ length: 6 }, (_, i) => {
+  const u = i / 6;
+  const u1 = (i + 1) / 6;
+  const H = 1.5;
+  return {
+    y: ((u + u1) / 2) * H,
+    x: 0.3 * ((u + u1) / 2) ** 2,
+    tilt: -Math.atan(0.6 * ((u + u1) / 2)),
+    rBot: 0.055 * (1 - 0.45 * u) * (i % 2 === 0 ? 1.15 : 1.0),
+    rTop: 0.055 * (1 - 0.45 * u1),
+    h: H / 6 + 0.012,
+  };
+});
+
+// Fronds: varied lengths and droops around the crown, two hanging low
+const FROND_SET = Array.from({ length: 9 }, (_, i) => {
+  const a = (i / 9) * Math.PI * 2 + (i % 2) * 0.25;
+  const dead = i >= 7; // a couple of dry, low-hanging fronds
+  return {
+    yaw: a,
+    len: dead ? 0.85 : 1.05 + (i % 3) * 0.16,
+    droop: dead ? 1.9 : 0.55 + (i % 2) * 0.3,
+  };
+});
+
+function PalmIsland({
+  sky,
+  onCycle,
+}: {
+  sky: MutableRefObject<SkyState>;
+  onCycle: () => void;
+}) {
+  const bobRef = useRef<THREE.Group>(null);
+  const frondGeom = useMemo(() => makeFrondGeometry(), []);
+  const sandMaterial = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: "#ecd0a0" }),
+    []
+  );
+  const trunkMaterial = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: "#9c6b46" }),
+    []
+  );
   const leafMaterial = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: "#7fbf6e" }),
+    () =>
+      new THREE.MeshBasicMaterial({ color: "#5fae5f", side: THREE.DoubleSide }),
+    []
+  );
+  const nutMaterial = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: "#6b4a30" }),
     []
   );
   const tmpColor = useMemo(() => new THREE.Color(), []);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const s = sky.current;
     const k = 1 - Math.exp(-2 * Math.min(delta, 0.05));
     const tint = (
-      mat: THREE.MeshBasicMaterial | null,
+      mat: THREE.MeshBasicMaterial,
       day: THREE.Color,
       night: THREE.Color
     ) => {
-      if (!mat) return;
       // Day/night blend, then pushed into the horizon haze
-      tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.35);
+      tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.3);
       mat.color.lerp(tmpColor, k);
     };
-    tint(sandMat.current, ISLAND_TINTS.sandDay, ISLAND_TINTS.sandNight);
-    tint(trunkMat.current, ISLAND_TINTS.trunkDay, ISLAND_TINTS.trunkNight);
+    tint(sandMaterial, ISLAND_TINTS.sandDay, ISLAND_TINTS.sandNight);
+    tint(trunkMaterial, ISLAND_TINTS.trunkDay, ISLAND_TINTS.trunkNight);
     tint(leafMaterial, ISLAND_TINTS.leafDay, ISLAND_TINTS.leafNight);
+    tint(nutMaterial, ISLAND_TINTS.nutDay, ISLAND_TINTS.nutNight);
+
+    // Ride the water: bob and sway like the swell underneath
+    const t = state.clock.elapsedTime;
+    if (bobRef.current) {
+      bobRef.current.position.y = Math.sin(t * 0.5) * 0.08;
+      bobRef.current.rotation.z = Math.sin(t * 0.38) * 0.04;
+      bobRef.current.rotation.x = Math.sin(t * 0.29 + 1.3) * 0.025;
+    }
   });
 
-  // Six drooping fronds around the trunk top
-  const fronds = useMemo(
-    () =>
-      Array.from({ length: 6 }, (_, i) => {
-        const a = (i / 6) * Math.PI * 2;
-        return { a, x: Math.cos(a) * 0.55, z: Math.sin(a) * 0.55 };
-      }),
-    []
-  );
-
   return (
-    <group position={[8, -1.9, -35]}>
-      {/* Sand dome */}
-      <mesh scale={[4.5, 1.6, 3.5]}>
-        <sphereGeometry args={[1, 24, 16]} />
-        <meshBasicMaterial ref={sandMat} color="#ecd0a0" />
-      </mesh>
-
-      {/* Palm – trunk with a slight lean */}
-      <group position={[0.6, 1.2, 0]} rotation={[0, 0, -0.12]}>
-        <mesh position={[0, 1.2, 0]}>
-          <cylinderGeometry args={[0.09, 0.17, 2.6, 8]} />
-          <meshBasicMaterial ref={trunkMat} color="#a1704f" />
+    <group position={[6.5, -1.65, -26]}>
+      <group
+        ref={bobRef}
+        onClick={(e) => {
+          e.stopPropagation();
+          onCycle();
+        }}
+        onPointerOver={() => (document.body.style.cursor = "pointer")}
+        onPointerOut={() => (document.body.style.cursor = "auto")}
+      >
+        {/* Wet sand ring at the waterline, then the dry dome */}
+        <mesh scale={[2.6, 0.5, 2.1]} material={nutMaterial}>
+          <sphereGeometry args={[1, 24, 12]} />
         </mesh>
-        {fronds.map(({ a, x, z }, i) => (
-          <mesh
-            key={i}
-            position={[x, 2.5, z]}
-            rotation={[Math.sin(a) * 0.45, -a, -Math.cos(a) * 0.45]}
-            scale={[1.3, 0.07, 0.32]}
-            material={leafMaterial}
-          >
-            <sphereGeometry args={[1, 10, 6]} />
-          </mesh>
-        ))}
+        <mesh
+          position={[0, 0.12, 0]}
+          scale={[2.2, 0.75, 1.75]}
+          material={sandMaterial}
+        >
+          <sphereGeometry args={[1, 24, 16]} />
+        </mesh>
+
+        {/* Palm */}
+        <group position={[-0.35, 0.75, 0]} scale={1.15}>
+          {TRUNK_RINGS.map((r, i) => (
+            <mesh
+              key={i}
+              position={[r.x, r.y, 0]}
+              rotation={[0, 0, r.tilt]}
+              material={trunkMaterial}
+            >
+              <cylinderGeometry args={[r.rTop, r.rBot, r.h, 7]} />
+            </mesh>
+          ))}
+
+          {/* Crown of fronds at the trunk tip */}
+          <group position={[0.3 + 0.02, 1.52, 0]}>
+            {FROND_SET.map((f, i) => (
+              <mesh
+                key={i}
+                geometry={frondGeom}
+                material={leafMaterial}
+                rotation={[0, f.yaw, 0]}
+                scale={[f.len, f.droop, 1]}
+              />
+            ))}
+            {/* Coconuts */}
+            <mesh position={[0.07, -0.06, 0.04]} material={nutMaterial}>
+              <sphereGeometry args={[0.055, 10, 8]} />
+            </mesh>
+            <mesh position={[-0.05, -0.08, -0.05]} material={nutMaterial}>
+              <sphereGeometry args={[0.05, 10, 8]} />
+            </mesh>
+          </group>
+        </group>
       </group>
     </group>
   );
@@ -774,12 +892,12 @@ function MagazineScene({
   spineCover?: string;
 }) {
   const gyro = useDeviceTilt();
-  const sky = useOrangeCountySky();
+  const { sky, cycleTime } = useOrangeCountySky();
 
   return (
     <>
       <SkyBackdrop sky={sky} />
-      <Island sky={sky} />
+      <PalmIsland sky={sky} onCycle={cycleTime} />
       <Ocean gyro={gyro} sky={sky} />
       <RotatingMagazine
         frontCover={frontCover}
