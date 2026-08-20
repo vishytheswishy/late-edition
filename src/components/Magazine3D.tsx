@@ -527,6 +527,7 @@ function PalmIsland({
 }) {
   const bobRef = useRef<THREE.Group>(null);
   const driftRef = useRef<THREE.Group>(null);
+  const palmSwayRef = useRef<THREE.Group>(null);
   const driftSim = useRef({ x: ISLAND_HOME.x, vx: 0, z: ISLAND_HOME.z, vz: 0 });
   const { scene } = useGLTF(PALM_MODEL);
   const domeGeom = useMemo(() => makeIslandGeometry(0), []);
@@ -595,6 +596,15 @@ function PalmIsland({
       bobRef.current.rotation.x = Math.sin(t * 0.42 + 1.3) * 0.05;
     }
 
+    // The whole tree sways from its base, lagging the island's roll
+    // like a pendulum, so it reads springy instead of welded on
+    if (palmSwayRef.current) {
+      palmSwayRef.current.rotation.z =
+        Math.sin(t * 0.6 - 0.8) * 0.05 + Math.sin(t * 1.15) * 0.025;
+      palmSwayRef.current.rotation.x =
+        Math.sin(t * 0.42 + 0.5) * 0.04 + Math.sin(t * 0.9 + 1.0) * 0.02;
+    }
+
     // A light breeze in the crown, soft enough to stay seated
     if (palm.leaves) {
       palm.leaves.rotation.z = Math.sin(t * 1.3) * 0.035;
@@ -647,14 +657,13 @@ function PalmIsland({
           material={sandMaterial}
         />
 
-        {/* Kenney palm, planted on the dome. The position cancels the
-            trunk's remaining base offset (about -0.8, 0, 0.7) so the
-            tree stands at the dome's centre */}
-        <primitive
-          object={palm.clone}
-          position={[0.8, 0.5, -0.7]}
-          scale={1}
-        />
+        {/* Kenney palm, planted on the dome. The sway group pivots at
+            the trunk base; the inner offset cancels the model's baked
+            base offset (about -0.8, 0, 0.7) so the tree stands centred
+            and bends from where it meets the sand */}
+        <group ref={palmSwayRef} position={[0, 0.5, 0]}>
+          <primitive object={palm.clone} position={[0.8, 0, -0.7]} scale={1} />
+        </group>
       </group>
     </group>
   );
