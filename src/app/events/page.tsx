@@ -1,6 +1,5 @@
 import { getEventIndex } from "@/lib/events";
 import EventsGallery from "@/components/EventsGallery";
-import EventCountdown from "@/components/EventCountdown";
 
 export const revalidate = 60;
 
@@ -26,15 +25,14 @@ export default async function EventsPage() {
 
   return (
     <div className="pt-16 md:pt-20">
-      {featured?.eventDate && (
-        <div className="border-b border-black/10 bg-white">
-          <EventCountdown
-            targetISO={featured.eventDate}
-            eventTitle={featured.title}
-          />
-        </div>
-      )}
-      <EventsGallery events={sorted} />
+      <EventsGallery
+        events={sorted}
+        nextEvent={
+          featured?.eventDate
+            ? { targetISO: featured.eventDate, title: featured.title }
+            : null
+        }
+      />
     </div>
   );
 }

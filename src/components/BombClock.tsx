@@ -60,7 +60,7 @@ export default function BombClock({
   };
 
   return (
-    <div className="flex items-center gap-1.5 select-none font-mono">
+    <div className="flex items-center gap-1.5 select-none font-mono whitespace-nowrap">
       {/* Location */}
       <p
         className="text-[13px] md:text-sm uppercase tracking-wider font-medium"

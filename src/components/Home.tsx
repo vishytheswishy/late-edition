@@ -42,9 +42,10 @@ export default function Home({
     <div className="min-h-screen bg-white">
       {/* Shorter than the viewport on mobile so the events section peeks
           above the fold and it is clear the page scrolls */}
-      {/* Top padding matches the fixed navbar's real height (5.5rem
-          mobile, 101px desktop) so no white gap shows between them */}
-      <section className="h-[calc(100svh-5.5rem)] md:h-screen bg-white flex flex-col overflow-hidden pt-[5.5rem] md:pt-[101px] relative">
+      {/* Mobile: the scene runs full-bleed under the glass navbar
+          (pt-0). md+ padding matches the slim navbar's real height
+          (20px padding + 36px logo + 1px border = 57px) */}
+      <section className="h-[94svh] md:h-screen bg-white flex flex-col overflow-hidden pt-0 md:pt-[57px] relative">
         <div className="flex-1 overflow-hidden">
           <LookbookLayout images={lookbookImages} />
         </div>

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import type { EventMeta } from "@/lib/events";
+import SkyTint from "./SkyTint";
 
 const containerVariants = {
   hidden: {},
@@ -26,9 +27,11 @@ export default function Events({ events }: { events: EventMeta[] }) {
   return (
     <section
       id="events"
-      className="w-full bg-white py-16 md:py-24 px-4 md:px-6 lg:px-8 scroll-mt-20"
+      className="relative w-full bg-white py-16 md:py-24 px-4 md:px-6 lg:px-8 scroll-mt-20"
     >
-      <div className="max-w-5xl mx-auto">
+      {/* A whisper of the hero's time-of-day sky */}
+      <SkyTint />
+      <div className="relative max-w-5xl mx-auto">
         <div className="flex items-baseline justify-between mb-10 md:mb-14">
           <h2 className="text-3xl md:text-5xl font-light tracking-tight text-black">
             Events

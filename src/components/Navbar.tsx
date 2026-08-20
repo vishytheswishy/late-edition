@@ -174,7 +174,8 @@ export default function Navbar() {
     <>
       <nav className="w-full border-b border-black/10 bg-white/60 backdrop-blur-xl" style={{ willChange: 'auto' }}>
         {/* ─── Desktop navbar (md+) ─── */}
-        <div className="relative hidden md:flex items-center justify-between w-full px-6 py-8 lg:px-8">
+        {/* Slim bar: vertical padding hugs the 36px logo */}
+        <div className="relative hidden md:flex items-center justify-between w-full px-6 py-2.5 lg:px-8">
           {/* Left side */}
           <div className="flex items-center justify-start gap-6 lg:gap-8 flex-1">
             <Link href="/events" className="text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50">Events</Link>
@@ -186,7 +187,7 @@ export default function Navbar() {
           {/* Center - Logo */}
           <div className="flex-shrink-0 flex items-center gap-2">
             <Link href="/#lookbook" className="relative overflow-hidden w-[220px] h-[36px]">
-              <Image src="/logo.png" alt="Late Edition" fill className="object-cover mix-blend-multiply" style={{ objectPosition: '50% 44%' }} sizes="220px" priority />
+              <Image src="/logo-transparent.png" alt="Late Edition" fill className="object-cover" style={{ objectPosition: '50% 44%' }} sizes="220px" priority />
             </Link>
             {liveStatus.isLive && (
               <div className="relative flex items-center" onMouseEnter={handleLiveMouseEnter} onMouseLeave={handleLiveMouseLeave}>
@@ -236,7 +237,7 @@ export default function Navbar() {
         </div>
 
         {/* ─── Mobile navbar (<md) ─── */}
-        <div className="flex md:hidden items-center justify-between w-full px-4 py-4">
+        <div className="flex md:hidden items-center justify-between w-full px-4 py-2">
           {/* Hamburger button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -250,7 +251,7 @@ export default function Navbar() {
 
           {/* Center - Logo */}
           <Link href="/#lookbook" className="relative overflow-hidden w-[140px] h-[24px]">
-            <Image src="/logo.png" alt="Late Edition" fill className="object-cover mix-blend-multiply" style={{ objectPosition: '50% 44%' }} sizes="140px" priority />
+            <Image src="/logo-transparent.png" alt="Late Edition" fill className="object-cover" style={{ objectPosition: '50% 44%' }} sizes="140px" priority />
           </Link>
 
           {/* Cart button */}
@@ -283,7 +284,7 @@ export default function Navbar() {
               <span className="block w-5 h-[1.5px] bg-black -translate-y-[6.5px] -rotate-45 transition-all duration-300" />
             </button>
             <Link href="/#lookbook" className="relative overflow-hidden w-[140px] h-[24px]" onClick={() => setIsMobileMenuOpen(false)}>
-              <Image src="/logo.png" alt="Late Edition" fill className="object-cover mix-blend-multiply" style={{ objectPosition: '50% 44%' }} sizes="140px" priority />
+              <Image src="/logo-transparent.png" alt="Late Edition" fill className="object-cover" style={{ objectPosition: '50% 44%' }} sizes="140px" priority />
             </Link>
             <div className="w-8" />
           </div>

@@ -546,15 +546,54 @@ function PalmIsland({
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const src = mesh.material as THREE.MeshStandardMaterial;
-      // The crown node pivots at the trunk top, so it can sway.
-      // Sink it a little into the trunk so the sway never opens a gap.
-      if (src.name === "leaves.002") {
+      const isLeaves = src.name === "leaves.002";
+      if (isLeaves) {
+        // The crown node pivots at the trunk top, so it can sway.
+        // Sink it a little into the trunk so the sway never opens a gap.
         leaves = mesh;
         mesh.position.y -= 0.09;
+
+        // Paint leaflet structure straight into vertex colours (all
+        // local, no texture asset): stripes across each frond, deeper
+        // green toward the tips, lighter tops — so the crown reads as
+        // foliage instead of a flat green glob
+        const geo = (mesh.geometry as THREE.BufferGeometry).clone();
+        mesh.geometry = geo;
+        const posAttr = geo.attributes.position as THREE.BufferAttribute;
+        const cols = new Float32Array(posAttr.count * 3);
+        const deep = new THREE.Color("#3e7a4b");
+        const light = new THREE.Color("#a9d98a");
+        const c = new THREE.Color();
+        for (let i = 0; i < posAttr.count; i++) {
+          const x = posAttr.getX(i);
+          const y = posAttr.getY(i);
+          const z = posAttr.getZ(i);
+          const r = Math.hypot(x, z); // distance out along the frond
+          const ang = Math.atan2(z, x);
+          const bands = 0.5 + 0.5 * Math.sin(ang * 14 + r * 9); // leaflets
+          const tip = THREE.MathUtils.clamp(r / 1.6, 0, 1);
+          const top = THREE.MathUtils.clamp(y * 1.8 + 0.5, 0, 1);
+          const f = THREE.MathUtils.clamp(
+            0.62 - tip * 0.4 + (bands - 0.5) * 0.35 + (top - 0.5) * 0.3,
+            0,
+            1
+          );
+          c.copy(deep).lerp(light, f);
+          cols[i * 3] = c.r;
+          cols[i * 3 + 1] = c.g;
+          cols[i * 3 + 2] = c.b;
+        }
+        geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
       }
-      const basic = new THREE.MeshBasicMaterial({ color: src.color.clone() });
+      // Leaves get white base so the vertex colours carry the green;
+      // the day/night tint multiplies on top for both cases
+      const day = isLeaves ? new THREE.Color("#ffffff") : src.color.clone();
+      const basic = new THREE.MeshBasicMaterial({
+        color: day.clone(),
+        vertexColors: isLeaves,
+      });
       mesh.material = basic;
-      tints.push({ mat: basic, day: src.color.clone() });
+      tints.push({ mat: basic, day });
     });
     return { clone, tints, leaves: leaves as THREE.Object3D | null };
   }, [scene]);
@@ -682,7 +721,7 @@ function SeaSway({
   const groupRef = useRef<THREE.Group>(null);
   const sim = useRef({ angle: 0, angleVel: 0, off: 0, offVel: 0 });
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     const g = gyro.current;
     const s = sim.current;
@@ -694,6 +733,10 @@ function SeaSway({
       targetAngle = -THREE.MathUtils.degToRad(roll) * 0.45;
       const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30);
       targetOff = (-pitch / 30) * 0.3;
+    } else {
+      // No gyroscope (desktop): a soft sway follows the pointer
+      targetAngle = state.pointer.x * -0.05;
+      targetOff = state.pointer.y * 0.06;
     }
 
     const stiffness = 16;

@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 interface Props {
   targetISO: string;
   eventTitle: string;
+  /** "center" (default) is the standalone block; "right" is compact,
+   * for sitting inside a header row */
+  align?: "center" | "right";
 }
 
 function parts(ms: number) {
@@ -18,7 +21,11 @@ function parts(ms: number) {
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
-export default function EventCountdown({ targetISO, eventTitle }: Props) {
+export default function EventCountdown({
+  targetISO,
+  eventTitle,
+  align = "center",
+}: Props) {
   const [now, setNow] = useState<number | null>(null);
   const [colonVisible, setColonVisible] = useState(true);
 
@@ -55,7 +62,11 @@ export default function EventCountdown({ targetISO, eventTitle }: Props) {
   };
 
   return (
-    <div className="flex flex-col items-center gap-1.5 select-none font-mono py-6 md:py-8">
+    <div
+      className={`flex flex-col gap-1.5 select-none font-mono ${
+        align === "right" ? "items-end" : "items-center py-6 md:py-8"
+      }`}
+    >
       <p
         className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-medium"
         style={{ color: "#dc2626" }}
@@ -91,7 +102,11 @@ export default function EventCountdown({ targetISO, eventTitle }: Props) {
         </span>
       </div>
 
-      <p className="text-[11px] md:text-sm uppercase tracking-[0.15em] text-black/70 mt-1 text-center px-4">
+      <p
+        className={`text-[11px] md:text-sm uppercase tracking-[0.15em] text-black/70 mt-1 ${
+          align === "right" ? "text-right" : "text-center px-4"
+        }`}
+      >
         {eventTitle}
       </p>
     </div>
