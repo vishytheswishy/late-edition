@@ -505,7 +505,7 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
       mesh.material = basic;
       tints.push({ mat: basic, day: src.color.clone() });
     });
-    return { clone, tints, leaves };
+    return { clone, tints, leaves: leaves as THREE.Object3D | null };
   }, [scene]);
 
   const sandMaterial = useMemo(
