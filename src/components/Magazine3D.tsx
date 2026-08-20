@@ -483,6 +483,7 @@ const ISLAND_TINTS = {
 
 function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   const bobRef = useRef<THREE.Group>(null);
+  const driftRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF(PALM_MODEL);
 
   // Clone the model and swap its lit materials for unlit ones that keep
@@ -490,6 +491,7 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   const palm = useMemo(() => {
     const clone = scene.clone(true);
     const tints: { mat: THREE.MeshBasicMaterial; day: THREE.Color }[] = [];
+    let leaves: THREE.Object3D | null = null;
     clone.traverse((o) => {
       // The asset's root node ships with a baked world offset of
       // (2.7, 0, -7.2) from its source kit grid — zero it out
@@ -497,11 +499,13 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const src = mesh.material as THREE.MeshStandardMaterial;
+      // The crown node pivots at the trunk top, so it can sway
+      if (src.name === "leaves.002") leaves = mesh;
       const basic = new THREE.MeshBasicMaterial({ color: src.color.clone() });
       mesh.material = basic;
       tints.push({ mat: basic, day: src.color.clone() });
     });
-    return { clone, tints };
+    return { clone, tints, leaves };
   }, [scene]);
 
   const sandMaterial = useMemo(
@@ -538,10 +542,23 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
       bobRef.current.rotation.z = Math.sin(t * 0.6) * 0.09;
       bobRef.current.rotation.x = Math.sin(t * 0.42 + 1.3) * 0.05;
     }
+
+    // A light breeze in the crown
+    if (palm.leaves) {
+      palm.leaves.rotation.z = Math.sin(t * 1.3) * 0.06;
+      palm.leaves.rotation.x = Math.sin(t * 0.9 + 2.1) * 0.05;
+    }
+
+    // Slow wander: the island drifts on a bounded loop, starting and
+    // staying on the right side of the frame
+    if (driftRef.current) {
+      driftRef.current.position.x = 3.4 + Math.sin(t * 0.12) * 1.1;
+      driftRef.current.position.z = -9 + Math.sin(t * 0.09 + 1.0) * 2.2;
+    }
   });
 
   return (
-    <group position={[3.2, -1.74, -9]} scale={1.05}>
+    <group ref={driftRef} position={[3.4, -1.74, -9]} scale={1.05}>
       <group ref={bobRef}>
         {/* Thin wet-sand sliver at the waterline, then the dry dome */}
         <mesh scale={[1.42, 0.3, 1.2]} material={wetMaterial}>
