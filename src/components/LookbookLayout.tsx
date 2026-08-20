@@ -114,21 +114,6 @@ export default function LookbookLayout({ images }: { images: string[] }) {
     { colStart: 1, colEnd: 2, rowStart: 2, rowEnd: 3 }, // Small
     { colStart: 4, colEnd: 5, rowStart: 2, rowEnd: 3 }, // Small
     { colStart: 8, colEnd: 9, rowStart: 2, rowEnd: 3 }, // Small
-    
-    // Row 3: Filler images
-    { colStart: 1, colEnd: 2, rowStart: 3, rowEnd: 4 }, // Small
-    { colStart: 2, colEnd: 4, rowStart: 3, rowEnd: 4 }, // Medium wide (2x1)
-    { colStart: 4, colEnd: 6, rowStart: 3, rowEnd: 4 }, // Medium wide (2x1)
-    { colStart: 6, colEnd: 8, rowStart: 3, rowEnd: 4 }, // Medium wide (2x1)
-    { colStart: 8, colEnd: 10, rowStart: 3, rowEnd: 4 }, // Medium wide (2x1)
-    { colStart: 10, colEnd: 11, rowStart: 3, rowEnd: 4 }, // Small
-    
-    // Row 4: Filler images
-    { colStart: 1, colEnd: 3, rowStart: 4, rowEnd: 5 }, // Medium wide (2x1)
-    { colStart: 3, colEnd: 5, rowStart: 4, rowEnd: 5 }, // Medium wide (2x1)
-    { colStart: 5, colEnd: 7, rowStart: 4, rowEnd: 5 }, // Medium wide (2x1)
-    { colStart: 7, colEnd: 9, rowStart: 4, rowEnd: 5 }, // Medium wide (2x1)
-    { colStart: 9, colEnd: 11, rowStart: 4, rowEnd: 5 }, // Medium wide (2x1)
   ];
 
   // Assign images to cells (order is pre-shuffled server-side)
@@ -162,21 +147,6 @@ export default function LookbookLayout({ images }: { images: string[] }) {
     { type: "image", imageSrc: cellsWithImages[6].imageSrc, colStart: 8, colEnd: 9, rowStart: 2, rowEnd: 3 },
     { type: "letter", letter: "O", colStart: 9, colEnd: 10, rowStart: 2, rowEnd: 3 },
     { type: "letter", letter: "N", colStart: 10, colEnd: 11, rowStart: 2, rowEnd: 3 },
-    
-    // Row 3: Filler images
-    { type: "image", imageSrc: cellsWithImages[7].imageSrc, colStart: 1, colEnd: 2, rowStart: 3, rowEnd: 4 },
-    { type: "image", imageSrc: cellsWithImages[8].imageSrc, colStart: 2, colEnd: 4, rowStart: 3, rowEnd: 4 },
-    { type: "image", imageSrc: cellsWithImages[9].imageSrc, colStart: 4, colEnd: 6, rowStart: 3, rowEnd: 4 },
-    { type: "image", imageSrc: cellsWithImages[10].imageSrc, colStart: 6, colEnd: 8, rowStart: 3, rowEnd: 4 },
-    { type: "image", imageSrc: cellsWithImages[11].imageSrc, colStart: 8, colEnd: 10, rowStart: 3, rowEnd: 4 },
-    { type: "image", imageSrc: cellsWithImages[12].imageSrc, colStart: 10, colEnd: 11, rowStart: 3, rowEnd: 4 },
-    
-    // Row 4: Filler images
-    { type: "image", imageSrc: cellsWithImages[13].imageSrc, colStart: 1, colEnd: 3, rowStart: 4, rowEnd: 5 },
-    { type: "image", imageSrc: cellsWithImages[14].imageSrc, colStart: 3, colEnd: 5, rowStart: 4, rowEnd: 5 },
-    { type: "image", imageSrc: cellsWithImages[15].imageSrc, colStart: 5, colEnd: 7, rowStart: 4, rowEnd: 5 },
-    { type: "image", imageSrc: cellsWithImages[0].imageSrc, colStart: 7, colEnd: 9, rowStart: 4, rowEnd: 5 },
-    { type: "image", imageSrc: cellsWithImages[1].imageSrc, colStart: 9, colEnd: 11, rowStart: 4, rowEnd: 5 },
   ];
 
 
@@ -239,7 +209,7 @@ export default function LookbookLayout({ images }: { images: string[] }) {
 
         {/* LATE EDITION with image patchwork - responsive grid */}
         <div 
-          className="relative grid grid-cols-5 md:grid-cols-10 auto-rows-fr md:grid-rows-4 gap-0 flex-1 h-full p-0 overflow-y-auto"
+          className="relative grid grid-cols-5 md:grid-cols-10 auto-rows-fr md:grid-rows-2 gap-0 flex-1 h-full p-0 overflow-y-auto"
         >
           {cells.map((cell, index) => {
             // Get the image index among all images to apply random delay
