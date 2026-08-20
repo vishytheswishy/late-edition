@@ -6,6 +6,7 @@ import {
   Suspense,
   useMemo,
   type MutableRefObject,
+  type ReactNode,
 } from "react";
 import {
   Canvas,
@@ -566,37 +567,20 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   );
 }
 
-// Base water colours; the sky's night factor blends between them
-const OCEAN_DAY = new THREE.Color("#7fd8ca");
-const OCEAN_NIGHT = new THREE.Color("#2a3b5e");
-
-function Ocean({
+// ── Sea sway – shared gyroscope tilt for the water AND the island ──
+// The phone rolls one way; the level sea counter-tilts through a damped
+// spring, and everything riding the water moves with it.
+function SeaSway({
   gyro,
-  sky,
+  children,
 }: {
   gyro: MutableRefObject<TiltState>;
-  sky: MutableRefObject<SkyState>;
+  children: ReactNode;
 }) {
-  const matRef = useRef<THREE.ShaderMaterial>(null);
   const groupRef = useRef<THREE.Group>(null);
-
-  // Damped-spring simulation: the sea tilts subtly with the phone and
-  // settles gracefully. No pointer input — desktop stays calm.
   const sim = useRef({ angle: 0, angleVel: 0, off: 0, offVel: 0 });
 
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uCol: { value: OCEAN_DAY.clone() },
-      uLine: { value: new THREE.Color("#ffffff") },
-      uHor: { value: new THREE.Color("#e2f2fb") },
-    }),
-    []
-  );
-  // Scratch colour reused every frame, no per-frame allocation
-  const tmpColor = useMemo(() => new THREE.Color(), []);
-
-  useFrame((state, delta) => {
+  useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
     const g = gyro.current;
     const s = sim.current;
@@ -604,11 +588,10 @@ function Ocean({
     let targetAngle = 0;
     let targetOff = 0;
     if (g.enabled) {
-      // The phone rolls one way; the level sea counter-tilts, subtly
       const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30);
-      targetAngle = -THREE.MathUtils.degToRad(roll) * 0.35;
+      targetAngle = -THREE.MathUtils.degToRad(roll) * 0.45;
       const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30);
-      targetOff = (-pitch / 30) * 0.25;
+      targetOff = (-pitch / 30) * 0.3;
     }
 
     const stiffness = 16;
@@ -624,7 +607,32 @@ function Ocean({
       groupRef.current.rotation.z = s.angle;
       groupRef.current.position.y = s.off;
     }
+  });
 
+  return <group ref={groupRef}>{children}</group>;
+}
+
+// Base water colours; the sky's night factor blends between them
+const OCEAN_DAY = new THREE.Color("#7fd8ca");
+const OCEAN_NIGHT = new THREE.Color("#2a3b5e");
+
+function Ocean({ sky }: { sky: MutableRefObject<SkyState> }) {
+  const matRef = useRef<THREE.ShaderMaterial>(null);
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uCol: { value: OCEAN_DAY.clone() },
+      uLine: { value: new THREE.Color("#ffffff") },
+      uHor: { value: new THREE.Color("#e2f2fb") },
+    }),
+    []
+  );
+  // Scratch colour reused every frame, no per-frame allocation
+  const tmpColor = useMemo(() => new THREE.Color(), []);
+
+  useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.05);
     const m = matRef.current;
     if (m) {
       m.uniforms.uTime.value = state.clock.elapsedTime;
@@ -642,17 +650,15 @@ function Ocean({
   });
 
   return (
-    <group ref={groupRef}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -60]}>
-        <planeGeometry args={[220, 160, 200, 90]} />
-        <shaderMaterial
-          ref={matRef}
-          vertexShader={OCEAN_VERT}
-          fragmentShader={OCEAN_FRAG}
-          uniforms={uniforms}
-        />
-      </mesh>
-    </group>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -60]}>
+      <planeGeometry args={[220, 160, 200, 90]} />
+      <shaderMaterial
+        ref={matRef}
+        vertexShader={OCEAN_VERT}
+        fragmentShader={OCEAN_FRAG}
+        uniforms={uniforms}
+      />
+    </mesh>
   );
 }
 
@@ -805,8 +811,10 @@ function MagazineScene({
   return (
     <>
       <SkyBackdrop sky={sky} />
-      <PalmIsland sky={sky} />
-      <Ocean gyro={gyro} sky={sky} />
+      <SeaSway gyro={gyro}>
+        <PalmIsland sky={sky} />
+        <Ocean sky={sky} />
+      </SeaSway>
       <RotatingMagazine
         frontCover={frontCover}
         backCover={backCover}
