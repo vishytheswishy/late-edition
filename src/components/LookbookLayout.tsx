@@ -181,9 +181,10 @@ export default function LookbookLayout({ images }: { images: string[] }) {
               spineCover="/cover/spine.jpg"
             />
 
-            {/* Issue number overlay */}
+            {/* Issue number overlay – difference blend keeps it readable on
+                the day sky and the night sky alike */}
             <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 pointer-events-none flex flex-col items-end">
-              <p className="text-xs md:text-sm uppercase tracking-wider text-black font-medium">
+              <p className="text-xs md:text-sm uppercase tracking-wider text-white mix-blend-difference font-medium">
                 ISSUE 002
               </p>
               <div className="mt-1.5">
