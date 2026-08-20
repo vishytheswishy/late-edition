@@ -104,16 +104,13 @@ export default function LookbookLayout({ images }: { images: string[] }) {
   // Images alternate in size but don't overlap - carefully positioned to avoid conflicts
   // Randomly assign webp images to image cells
   const imageCells = [
-    // Row 1: L A T E
-    { colStart: 1, colEnd: 3, rowStart: 1, rowEnd: 2 }, // Medium wide (2x1)
-    { colStart: 4, colEnd: 5, rowStart: 1, rowEnd: 2 }, // Small
-    { colStart: 6, colEnd: 7, rowStart: 1, rowEnd: 2 }, // Small
-    { colStart: 8, colEnd: 10, rowStart: 1, rowEnd: 2 }, // Medium wide (2x1)
-    
-    // Row 2: E D I T I O N
-    { colStart: 1, colEnd: 2, rowStart: 2, rowEnd: 3 }, // Small
-    { colStart: 4, colEnd: 5, rowStart: 2, rowEnd: 3 }, // Small
-    { colStart: 8, colEnd: 9, rowStart: 2, rowEnd: 3 }, // Small
+    // Row 1: three wide images between the letter pairs
+    { colStart: 1, colEnd: 3, rowStart: 1, rowEnd: 2 },
+    { colStart: 5, colEnd: 7, rowStart: 1, rowEnd: 2 },
+    { colStart: 9, colEnd: 11, rowStart: 1, rowEnd: 2 },
+
+    // Row 2: one extra-wide image splitting EDI / TION
+    { colStart: 4, colEnd: 7, rowStart: 2, rowEnd: 3 },
   ];
 
   // Assign images to cells (order is pre-shuffled server-side)
@@ -126,25 +123,22 @@ export default function LookbookLayout({ images }: { images: string[] }) {
   }));
 
   const cells: CellType[] = [
-    // Row 1: L A T E
+    // Row 1: [img] L A [img] T E [img]
     { type: "image", imageSrc: cellsWithImages[0].imageSrc, colStart: 1, colEnd: 3, rowStart: 1, rowEnd: 2 },
     { type: "letter", letter: "L", colStart: 3, colEnd: 4, rowStart: 1, rowEnd: 2 },
-    { type: "image", imageSrc: cellsWithImages[1].imageSrc, colStart: 4, colEnd: 5, rowStart: 1, rowEnd: 2 },
-    { type: "letter", letter: "A", colStart: 5, colEnd: 6, rowStart: 1, rowEnd: 2 },
-    { type: "image", imageSrc: cellsWithImages[2].imageSrc, colStart: 6, colEnd: 7, rowStart: 1, rowEnd: 2 },
+    { type: "letter", letter: "A", colStart: 4, colEnd: 5, rowStart: 1, rowEnd: 2 },
+    { type: "image", imageSrc: cellsWithImages[1].imageSrc, colStart: 5, colEnd: 7, rowStart: 1, rowEnd: 2 },
     { type: "letter", letter: "T", colStart: 7, colEnd: 8, rowStart: 1, rowEnd: 2 },
-    { type: "image", imageSrc: cellsWithImages[3].imageSrc, colStart: 8, colEnd: 10, rowStart: 1, rowEnd: 2 },
-    { type: "letter", letter: "E", colStart: 10, colEnd: 11, rowStart: 1, rowEnd: 2 },
-    
-    // Row 2: E D I T I O N
-    { type: "image", imageSrc: cellsWithImages[4].imageSrc, colStart: 1, colEnd: 2, rowStart: 2, rowEnd: 3 },
-    { type: "letter", letter: "E", colStart: 2, colEnd: 3, rowStart: 2, rowEnd: 3 },
-    { type: "letter", letter: "D", colStart: 3, colEnd: 4, rowStart: 2, rowEnd: 3 },
-    { type: "image", imageSrc: cellsWithImages[5].imageSrc, colStart: 4, colEnd: 5, rowStart: 2, rowEnd: 3 },
-    { type: "letter", letter: "I", colStart: 5, colEnd: 6, rowStart: 2, rowEnd: 3 },
-    { type: "letter", letter: "T", colStart: 6, colEnd: 7, rowStart: 2, rowEnd: 3 },
-    { type: "letter", letter: "I", colStart: 7, colEnd: 8, rowStart: 2, rowEnd: 3 },
-    { type: "image", imageSrc: cellsWithImages[6].imageSrc, colStart: 8, colEnd: 9, rowStart: 2, rowEnd: 3 },
+    { type: "letter", letter: "E", colStart: 8, colEnd: 9, rowStart: 1, rowEnd: 2 },
+    { type: "image", imageSrc: cellsWithImages[2].imageSrc, colStart: 9, colEnd: 11, rowStart: 1, rowEnd: 2 },
+
+    // Row 2: E D I [wide img] T I O N
+    { type: "letter", letter: "E", colStart: 1, colEnd: 2, rowStart: 2, rowEnd: 3 },
+    { type: "letter", letter: "D", colStart: 2, colEnd: 3, rowStart: 2, rowEnd: 3 },
+    { type: "letter", letter: "I", colStart: 3, colEnd: 4, rowStart: 2, rowEnd: 3 },
+    { type: "image", imageSrc: cellsWithImages[3].imageSrc, colStart: 4, colEnd: 7, rowStart: 2, rowEnd: 3 },
+    { type: "letter", letter: "T", colStart: 7, colEnd: 8, rowStart: 2, rowEnd: 3 },
+    { type: "letter", letter: "I", colStart: 8, colEnd: 9, rowStart: 2, rowEnd: 3 },
     { type: "letter", letter: "O", colStart: 9, colEnd: 10, rowStart: 2, rowEnd: 3 },
     { type: "letter", letter: "N", colStart: 10, colEnd: 11, rowStart: 2, rowEnd: 3 },
   ];
