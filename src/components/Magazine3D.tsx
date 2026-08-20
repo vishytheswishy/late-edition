@@ -468,6 +468,8 @@ function SkyBackdrop({ sky }: { sky: MutableRefObject<SkyState> }) {
 const ISLAND_TINTS = {
   sandDay: new THREE.Color("#ecd0a0"),
   sandNight: new THREE.Color("#4a4a68"),
+  wetDay: new THREE.Color("#c9ad82"),
+  wetNight: new THREE.Color("#414868"),
   trunkDay: new THREE.Color("#9c6b46"),
   trunkNight: new THREE.Color("#3d3b58"),
   leafDay: new THREE.Color("#5fae5f"),
@@ -547,6 +549,10 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
     () => new THREE.MeshBasicMaterial({ color: "#6b4a30" }),
     []
   );
+  const wetMaterial = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: "#c9ad82" }),
+    []
+  );
   const tmpColor = useMemo(() => new THREE.Color(), []);
 
   useFrame((state, delta) => {
@@ -566,6 +572,7 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
     tint(trunkMaterial, ISLAND_TINTS.trunkDay, ISLAND_TINTS.trunkNight);
     tint(leafMaterial, ISLAND_TINTS.leafDay, ISLAND_TINTS.leafNight);
     tint(nutMaterial, ISLAND_TINTS.nutDay, ISLAND_TINTS.nutNight);
+    tint(wetMaterial, ISLAND_TINTS.wetDay, ISLAND_TINTS.wetNight);
 
     // Ride the water: a light, happy bob and sway
     const t = state.clock.elapsedTime;
@@ -577,15 +584,15 @@ function PalmIsland({ sky }: { sky: MutableRefObject<SkyState> }) {
   });
 
   return (
-    <group position={[4.2, -1.62, -13]} scale={0.85}>
+    <group position={[4.2, -1.74, -13]} scale={0.85}>
       <group ref={bobRef}>
-        {/* Wet sand ring at the waterline, then a round dry dome */}
-        <mesh scale={[1.65, 0.38, 1.4]} material={nutMaterial}>
+        {/* Thin wet-sand sliver at the waterline, then the dry dome */}
+        <mesh scale={[1.42, 0.3, 1.2]} material={wetMaterial}>
           <sphereGeometry args={[1, 24, 12]} />
         </mesh>
         <mesh
-          position={[0, 0.1, 0]}
-          scale={[1.35, 0.62, 1.15]}
+          position={[0, 0.12, 0]}
+          scale={[1.32, 0.58, 1.12]}
           material={sandMaterial}
         >
           <sphereGeometry args={[1, 24, 16]} />
