@@ -174,8 +174,8 @@ export default function Navbar() {
     <>
       <nav className="w-full border-b border-black/10 bg-white/60 backdrop-blur-xl" style={{ willChange: 'auto' }}>
         {/* ─── Desktop navbar (md+) ─── */}
-        {/* Slim bar: vertical padding hugs the 36px logo */}
-        <div className="relative hidden md:flex items-center justify-between w-full px-6 py-2.5 lg:px-8">
+        {/* Slim bar: breathing room around the 36px logo */}
+        <div className="relative hidden md:flex items-center justify-between w-full px-6 py-4 lg:px-8">
           {/* Left side */}
           <div className="flex items-center justify-start gap-6 lg:gap-8 flex-1">
             <Link href="/events" className="text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50">Events</Link>

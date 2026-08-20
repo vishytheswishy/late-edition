@@ -561,20 +561,19 @@ function PalmIsland({
         mesh.geometry = geo;
         const posAttr = geo.attributes.position as THREE.BufferAttribute;
         const cols = new Float32Array(posAttr.count * 3);
-        const deep = new THREE.Color("#3e7a4b");
-        const light = new THREE.Color("#a9d98a");
+        // A clean two-tone: sunlit tops, deeper tips. No banding — the
+        // mesh is too low-poly for stripes; they smear into blotches.
+        const deep = new THREE.Color("#4c8a55");
+        const light = new THREE.Color("#7cc26b");
         const c = new THREE.Color();
         for (let i = 0; i < posAttr.count; i++) {
           const x = posAttr.getX(i);
           const y = posAttr.getY(i);
           const z = posAttr.getZ(i);
-          const r = Math.hypot(x, z); // distance out along the frond
-          const ang = Math.atan2(z, x);
-          const bands = 0.5 + 0.5 * Math.sin(ang * 14 + r * 9); // leaflets
-          const tip = THREE.MathUtils.clamp(r / 1.6, 0, 1);
+          const tip = THREE.MathUtils.clamp(Math.hypot(x, z) / 1.6, 0, 1);
           const top = THREE.MathUtils.clamp(y * 1.8 + 0.5, 0, 1);
           const f = THREE.MathUtils.clamp(
-            0.62 - tip * 0.4 + (bands - 0.5) * 0.35 + (top - 0.5) * 0.3,
+            0.55 + top * 0.35 - tip * 0.3,
             0,
             1
           );

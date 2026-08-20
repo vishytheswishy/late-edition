@@ -44,8 +44,8 @@ export default function Home({
           above the fold and it is clear the page scrolls */}
       {/* Mobile: the scene runs full-bleed under the glass navbar
           (pt-0). md+ padding matches the slim navbar's real height
-          (20px padding + 36px logo + 1px border = 57px) */}
-      <section className="h-[94svh] md:h-screen bg-white flex flex-col overflow-hidden pt-0 md:pt-[57px] relative">
+          (32px padding + 36px logo + 1px border = 69px) */}
+      <section className="h-[94svh] md:h-screen bg-white flex flex-col overflow-hidden pt-0 md:pt-[69px] relative">
         <div className="flex-1 overflow-hidden">
           <LookbookLayout images={lookbookImages} />
         </div>
