@@ -17,8 +17,8 @@ export type SkyPalette = {
 const SKY_STOPS: [number, string, string, string, string, number][] = [
   [0.0, "#1c2347", "#3b4070", "#6f739f", "#c3cbe8", 1],
   [5.0, "#242b54", "#4c4a7c", "#92739c", "#d0c4dc", 1],
-  [6.0, "#3d5586", "#9d7ba0", "#f4a988", "#ffd9b8", 0.5],
-  [7.5, "#4f9ade", "#87c0ef", "#c8e5fa", "#f4faff", 0.1],
+  [6.0, "#4a6fa8", "#c98f92", "#f7a173", "#ffd9b8", 0.25],
+  [7.5, "#4f9ade", "#a9b6dd", "#ffc09a", "#fff0d8", 0.05],
   [12.0, "#3f8fe0", "#7ab8ef", "#bfe0f8", "#ffffff", 0],
   [16.5, "#4a90d4", "#8cbde8", "#ffd9a8", "#ffedd0", 0],
   [18.5, "#47548f", "#9d7ba0", "#ff9d78", "#ffcfae", 0.5],
@@ -27,16 +27,13 @@ const SKY_STOPS: [number, string, string, string, string, number][] = [
   [24.0, "#1c2347", "#3b4070", "#6f739f", "#c3cbe8", 1],
 ];
 
+// The site lives at golden hour: the scene hour is pinned to sunrise
+// so the gradient always carries its orange horizon. (The clock text
+// still shows the real time — it formats its own date.)
+const PINNED_SUNRISE_HOUR = 7.0;
+
 export function orangeCountyHour(): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    hour: "numeric",
-    minute: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const h = Number(parts.find((p) => p.type === "hour")?.value ?? 12);
-  const m = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return h + m / 60;
+  return PINNED_SUNRISE_HOUR;
 }
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -83,16 +80,28 @@ export function computeSkyPalette(hf: number): SkyPalette {
   };
 }
 
-// Text colours for labels drawn over the top of the gradient: a tinted
-// near-white on dark skies, a tinted near-black on light skies, so the
-// text always fits the gradient and always stays readable.
+// The water colours live here so the scene and the overlay text agree
+export const OCEAN_DAY_HEX = "#7fd8ca";
+export const OCEAN_NIGHT_HEX = "#2a3b5e";
+
+function luminance(hex: string): number {
+  const [r, g, b] = hexToRgb(hex);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+// Text colours for the scene overlays. The label (top right) reads
+// against the sky; the clock accent (bottom right) reads against the
+// water — each picks dark ink or warm cream from its own background.
 export function skyTextColors(p: SkyPalette): {
   label: string;
   accent: string;
 } {
-  const [r, g, b] = hexToRgb(p.top);
-  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-  return lum < 0.45
-    ? { label: mixHex(p.horizon, "#ffffff", 0.82), accent: "#ff8f7d" }
-    : { label: mixHex(p.top, "#000000", 0.78), accent: "#dc2626" };
+  // Deep rust on light backgrounds, warm peach on dark ones — the
+  // complement of the teal water and the blue sky, never black/white
+  const RUST = "#a63a1e";
+  const PEACH = "#ffb08a";
+  const label = luminance(p.top) < 0.45 ? PEACH : RUST;
+  const water = mixHex(OCEAN_DAY_HEX, OCEAN_NIGHT_HEX, p.night);
+  const accent = luminance(water) < 0.5 ? PEACH : RUST;
+  return { label, accent };
 }

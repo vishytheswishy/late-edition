@@ -17,7 +17,12 @@ import {
   type ThreeEvent,
 } from "@react-three/fiber";
 import * as THREE from "three";
-import { computeSkyPalette, orangeCountyHour } from "@/lib/skyPalette";
+import {
+  computeSkyPalette,
+  orangeCountyHour,
+  OCEAN_DAY_HEX,
+  OCEAN_NIGHT_HEX,
+} from "@/lib/skyPalette";
 
 if (typeof window !== "undefined") {
   useLoader.preload(THREE.TextureLoader, [
@@ -426,8 +431,8 @@ function SeaSway({ children }: { children: ReactNode }) {
 }
 
 // Base water colours; the sky's night factor blends between them
-const OCEAN_DAY = new THREE.Color("#7fd8ca");
-const OCEAN_NIGHT = new THREE.Color("#2a3b5e");
+const OCEAN_DAY = new THREE.Color(OCEAN_DAY_HEX);
+const OCEAN_NIGHT = new THREE.Color(OCEAN_NIGHT_HEX);
 
 function Ocean({ sky }: { sky: MutableRefObject<SkyState> }) {
   const matRef = useRef<THREE.ShaderMaterial>(null);
