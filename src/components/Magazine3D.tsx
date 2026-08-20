@@ -546,15 +546,53 @@ function PalmIsland({
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const src = mesh.material as THREE.MeshStandardMaterial;
-      // The crown node pivots at the trunk top, so it can sway.
-      // Sink it a little into the trunk so the sway never opens a gap.
-      if (src.name === "leaves.002") {
+      const isLeaves = src.name === "leaves.002";
+      if (isLeaves) {
+        // The crown node pivots at the trunk top, so it can sway.
+        // Sink it a little into the trunk so the sway never opens a gap.
         leaves = mesh;
         mesh.position.y -= 0.09;
+
+        // Paint leaflet structure straight into vertex colours (all
+        // local, no texture asset): stripes across each frond, deeper
+        // green toward the tips, lighter tops — so the crown reads as
+        // foliage instead of a flat green glob
+        const geo = (mesh.geometry as THREE.BufferGeometry).clone();
+        mesh.geometry = geo;
+        const posAttr = geo.attributes.position as THREE.BufferAttribute;
+        const cols = new Float32Array(posAttr.count * 3);
+        // A clean two-tone: sunlit tops, deeper tips. No banding — the
+        // mesh is too low-poly for stripes; they smear into blotches.
+        const deep = new THREE.Color("#5cab68");
+        const light = new THREE.Color("#96e381");
+        const c = new THREE.Color();
+        for (let i = 0; i < posAttr.count; i++) {
+          const x = posAttr.getX(i);
+          const y = posAttr.getY(i);
+          const z = posAttr.getZ(i);
+          const tip = THREE.MathUtils.clamp(Math.hypot(x, z) / 1.6, 0, 1);
+          const top = THREE.MathUtils.clamp(y * 1.8 + 0.5, 0, 1);
+          const f = THREE.MathUtils.clamp(
+            0.55 + top * 0.35 - tip * 0.3,
+            0,
+            1
+          );
+          c.copy(deep).lerp(light, f);
+          cols[i * 3] = c.r;
+          cols[i * 3 + 1] = c.g;
+          cols[i * 3 + 2] = c.b;
+        }
+        geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
       }
-      const basic = new THREE.MeshBasicMaterial({ color: src.color.clone() });
+      // Leaves get white base so the vertex colours carry the green;
+      // the day/night tint multiplies on top for both cases
+      const day = isLeaves ? new THREE.Color("#ffffff") : src.color.clone();
+      const basic = new THREE.MeshBasicMaterial({
+        color: day.clone(),
+        vertexColors: isLeaves,
+      });
       mesh.material = basic;
-      tints.push({ mat: basic, day: src.color.clone() });
+      tints.push({ mat: basic, day });
     });
     return { clone, tints, leaves: leaves as THREE.Object3D | null };
   }, [scene]);
@@ -620,13 +658,17 @@ function PalmIsland({
     let targetX = ISLAND_HOME.x;
     let targetZ = ISLAND_HOME.z;
     if (g.enabled) {
-      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30) / 30;
-      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30) / 30;
-      targetX += roll * 1.4;
-      targetZ += pitch * 2.0;
+      // ±15° of tilt reaches full travel — the island really crosses
+      // the water, it does not just nudge
+      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -15, 15) / 15;
+      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -15, 15) / 15;
+      targetX += roll * 3.2;
+      targetZ += pitch * 4.5;
     }
-    const stiffness = 3.5;
-    const damping = 1.8;
+    // Firm spring: tracks the hand almost directly, glides the last
+    // stretch home when the phone rests
+    const stiffness = 16;
+    const damping = 3.0;
     d.vx += (targetX - d.x) * stiffness * dt;
     d.vx *= Math.exp(-damping * dt);
     d.x += d.vx * dt;
@@ -682,7 +724,7 @@ function SeaSway({
   const groupRef = useRef<THREE.Group>(null);
   const sim = useRef({ angle: 0, angleVel: 0, off: 0, offVel: 0 });
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     const g = gyro.current;
     const s = sim.current;
@@ -694,6 +736,10 @@ function SeaSway({
       targetAngle = -THREE.MathUtils.degToRad(roll) * 0.45;
       const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30);
       targetOff = (-pitch / 30) * 0.3;
+    } else {
+      // No gyroscope (desktop): a soft sway follows the pointer
+      targetAngle = state.pointer.x * -0.05;
+      targetOff = state.pointer.y * 0.06;
     }
 
     const stiffness = 16;

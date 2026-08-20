@@ -32,21 +32,33 @@ export default async function EventPage({
         </Link>
 
         <article className="mt-6">
-          <header className="mb-8">
-            <time className="text-[10px] text-black/40 uppercase tracking-[0.15em]">
-              {new Date(event.eventDate ?? event.createdAt).toLocaleDateString("en-US", {
-                month: "long",
-                day: "numeric",
-                year: "numeric",
-              })}
-            </time>
-            <h1 className="text-4xl sm:text-5xl font-normal tracking-tight mt-2">
-              {event.title}
-            </h1>
-            {event.excerpt && (
-              <p className="text-lg text-black/50 font-light mt-4">
-                {event.excerpt}
-              </p>
+          <header className="mb-8 flex flex-wrap items-start justify-between gap-x-8 gap-y-6">
+            <div>
+              <time className="text-[10px] text-black/40 uppercase tracking-[0.15em]">
+                {new Date(event.eventDate ?? event.createdAt).toLocaleDateString("en-US", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </time>
+              <h1 className="text-4xl sm:text-5xl font-normal tracking-tight mt-2">
+                {event.title}
+              </h1>
+              {event.excerpt && (
+                <p className="text-lg text-black/50 font-light mt-4">
+                  {event.excerpt}
+                </p>
+              )}
+            </div>
+            {event.poshUrl && (
+              <a
+                href={event.poshUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 mt-3 inline-flex items-center gap-2 border border-black px-5 py-2.5 text-[11px] uppercase tracking-[0.2em] text-black hover:bg-black hover:text-white transition-colors"
+              >
+                RSVP on Posh &rarr;
+              </a>
             )}
           </header>
         </article>
@@ -63,7 +75,7 @@ export default async function EventPage({
               height={0}
               sizes="(max-width: 896px) 100vw, 896px"
               priority
-              className="w-full h-auto rounded-lg"
+              className="w-full h-auto"
             />
           </div>
         </div>
@@ -76,19 +88,6 @@ export default async function EventPage({
             className="prose prose-lg max-w-none prose-headings:font-normal prose-headings:tracking-tight prose-a:text-black prose-a:underline-offset-4 prose-img:rounded-lg [&_.event-flyer]:not-prose"
             dangerouslySetInnerHTML={{ __html: event.content }}
           />
-        )}
-
-        {event.poshUrl && (
-          <div className="mt-10 flex justify-center">
-            <a
-              href={event.poshUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white rounded-lg text-sm tracking-wide hover:bg-black/80 transition-colors"
-            >
-              RSVP on Posh →
-            </a>
-          </div>
         )}
 
         {event.rsvpEnabled && !event.poshUrl && <RsvpForm eventId={event.id} />}

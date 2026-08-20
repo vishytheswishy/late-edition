@@ -165,7 +165,8 @@ export default function LookbookLayout({ images }: { images: string[] }) {
             />
 
             {/* Issue number overlay – colours follow the sky gradient */}
-            <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 pointer-events-none flex flex-col items-end">
+            {/* Sits below the overlaying glass navbar on mobile */}
+            <div className="absolute top-14 right-4 md:top-6 md:right-6 z-10 pointer-events-none flex flex-col items-end">
               <p
                 className="text-base md:text-lg uppercase tracking-wider font-medium"
                 style={{ color: overlay.label }}

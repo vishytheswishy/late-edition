@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import type { EventMeta } from "@/lib/events";
+import SkyTint from "./SkyTint";
+import EventCountdown from "./EventCountdown";
 
 // ── Animation variants ──
 
@@ -28,33 +30,45 @@ const itemVariants = {
 
 interface EventsGalleryProps {
   events: EventMeta[];
+  nextEvent?: { targetISO: string; title: string } | null;
 }
 
-export default function EventsGallery({ events }: EventsGalleryProps) {
+export default function EventsGallery({
+  events,
+  nextEvent = null,
+}: EventsGalleryProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* ── Hero ── */}
+    <div className="relative min-h-screen bg-white">
+      {/* A whisper of the homepage's time-of-day sky */}
+      <SkyTint />
+      {/* ── Hero: title left, next-event countdown right ── */}
       <section className="relative w-full">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center py-10 md:py-14">
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="text-[10px] uppercase tracking-[0.3em] text-black/40 mb-3"
-            >
-              What&apos;s Happening
-            </motion.p>
+          <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-6 py-10 md:py-14">
             <motion.h1
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
               className="text-3xl md:text-4xl font-light tracking-tight text-black"
             >
               Events
             </motion.h1>
+            {nextEvent && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="ml-auto"
+              >
+                <EventCountdown
+                  targetISO={nextEvent.targetISO}
+                  eventTitle={nextEvent.title}
+                  align="right"
+                />
+              </motion.div>
+            )}
           </div>
         </div>
       </section>
