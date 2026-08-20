@@ -43,6 +43,8 @@ export default function BombClock({
 
   const [hours, minutes, seconds] = time.split(":");
 
+  // The timer keeps its signature stretched digits; the labels around
+  // it share one consistent mono size
   const digitStyle: React.CSSProperties = {
     color: accent,
     letterSpacing: "-0.05em",
@@ -63,7 +65,7 @@ export default function BombClock({
     <div className="flex items-center gap-1.5 select-none font-mono whitespace-nowrap">
       {/* Location */}
       <p
-        className="text-[13px] md:text-sm uppercase tracking-wider font-medium"
+        className="text-xs md:text-sm uppercase tracking-[0.15em] font-medium"
         style={{ color: accent }}
       >
         Orange County, CA
@@ -71,26 +73,26 @@ export default function BombClock({
 
       {/* Time */}
       <div className="flex items-center leading-none">
-        <span className="text-[13px] md:text-sm font-bold tabular-nums" style={digitStyle}>
+        <span className="text-xs md:text-sm font-bold tabular-nums" style={digitStyle}>
           {hours}
         </span>
-        <span className="text-[13px] md:text-sm font-bold" style={colonStyle}>
+        <span className="text-xs md:text-sm font-bold" style={colonStyle}>
           :
         </span>
-        <span className="text-[13px] md:text-sm font-bold tabular-nums" style={digitStyle}>
+        <span className="text-xs md:text-sm font-bold tabular-nums" style={digitStyle}>
           {minutes}
         </span>
-        <span className="text-[13px] md:text-sm font-bold" style={colonStyle}>
+        <span className="text-xs md:text-sm font-bold" style={colonStyle}>
           :
         </span>
-        <span className="text-[13px] md:text-sm font-bold tabular-nums" style={digitStyle}>
+        <span className="text-xs md:text-sm font-bold tabular-nums" style={digitStyle}>
           {seconds}
         </span>
       </div>
 
       {/* AM/PM + Pacific zone */}
       <p
-        className="text-[10px] md:text-[11px] uppercase tracking-wider font-medium"
+        className="text-xs md:text-sm uppercase tracking-[0.15em] font-medium"
         style={{ color: accent }}
       >
         {suffix}
