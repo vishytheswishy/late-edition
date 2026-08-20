@@ -262,10 +262,11 @@ const OCEAN_VERT = /* glsl */ `
     vec4 wp = modelMatrix * vec4(position, 1.0);
     // Gentle rolling swells, layered so they never repeat obviously
     float t = uTime;
-    float h = sin(wp.x * 0.55 + t * 0.8) * 0.16;
-    h += sin(wp.z * 0.45 - t * 0.6 + 1.7) * 0.13;
-    h += sin((wp.x + wp.z) * 0.28 + t * 0.45) * 0.1;
-    h += sin(wp.x * 1.3 - t * 1.4 + 4.2) * 0.04;
+    // Peak height ~0.3 – the magazine floats at a safe clearance above
+    float h = sin(wp.x * 0.55 + t * 0.8) * 0.11;
+    h += sin(wp.z * 0.45 - t * 0.6 + 1.7) * 0.09;
+    h += sin((wp.x + wp.z) * 0.28 + t * 0.45) * 0.07;
+    h += sin(wp.x * 1.3 - t * 1.4 + 4.2) * 0.03;
     // Waves flatten with distance so the horizon stays a clean line
     float falloff = 1.0 - smoothstep(8.0, 28.0, distance(wp.xz, cameraPosition.xz));
     h *= falloff;
@@ -518,29 +519,28 @@ function makeFrondGeometry(): THREE.BufferGeometry {
   return g;
 }
 
-// Trunk: stacked tapered rings following a gentle lean, like a real palm
+// Trunk: short and chubby, stacked tapered rings with a gentle lean
 const TRUNK_RINGS = Array.from({ length: 6 }, (_, i) => {
   const u = i / 6;
   const u1 = (i + 1) / 6;
-  const H = 1.5;
+  const H = 1.0;
   return {
     y: ((u + u1) / 2) * H,
-    x: 0.3 * ((u + u1) / 2) ** 2,
-    tilt: -Math.atan(0.6 * ((u + u1) / 2)),
-    rBot: 0.055 * (1 - 0.45 * u) * (i % 2 === 0 ? 1.15 : 1.0),
-    rTop: 0.055 * (1 - 0.45 * u1),
+    x: 0.2 * ((u + u1) / 2) ** 2,
+    tilt: -Math.atan(0.4 * ((u + u1) / 2)),
+    rBot: 0.085 * (1 - 0.4 * u) * (i % 2 === 0 ? 1.18 : 1.0),
+    rTop: 0.085 * (1 - 0.4 * u1),
     h: H / 6 + 0.012,
   };
 });
 
-// Fronds: varied lengths and droops around the crown, two hanging low
+// Fronds: a fluffy round crown of short, wide, well-drooped blades
 const FROND_SET = Array.from({ length: 9 }, (_, i) => {
   const a = (i / 9) * Math.PI * 2 + (i % 2) * 0.25;
-  const dead = i >= 7; // a couple of dry, low-hanging fronds
   return {
     yaw: a,
-    len: dead ? 0.85 : 1.05 + (i % 3) * 0.16,
-    droop: dead ? 1.9 : 0.55 + (i % 2) * 0.3,
+    len: 0.68 + (i % 3) * 0.1,
+    droop: 0.75 + (i % 2) * 0.3,
   };
 });
 
@@ -581,7 +581,8 @@ function PalmIsland({
       night: THREE.Color
     ) => {
       // Day/night blend, then pushed into the horizon haze
-      tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.3);
+      // Closer to the camera now, so only a light kiss of horizon haze
+      tmpColor.copy(day).lerp(night, s.night).lerp(s.horizon, 0.12);
       mat.color.lerp(tmpColor, k);
     };
     tint(sandMaterial, ISLAND_TINTS.sandDay, ISLAND_TINTS.sandNight);
@@ -589,17 +590,17 @@ function PalmIsland({
     tint(leafMaterial, ISLAND_TINTS.leafDay, ISLAND_TINTS.leafNight);
     tint(nutMaterial, ISLAND_TINTS.nutDay, ISLAND_TINTS.nutNight);
 
-    // Ride the water: bob and sway like the swell underneath
+    // Ride the water: a light, happy bob and sway
     const t = state.clock.elapsedTime;
     if (bobRef.current) {
-      bobRef.current.position.y = Math.sin(t * 0.5) * 0.08;
-      bobRef.current.rotation.z = Math.sin(t * 0.38) * 0.04;
-      bobRef.current.rotation.x = Math.sin(t * 0.29 + 1.3) * 0.025;
+      bobRef.current.position.y = Math.sin(t * 0.7) * 0.06;
+      bobRef.current.rotation.z = Math.sin(t * 0.5) * 0.05;
+      bobRef.current.rotation.x = Math.sin(t * 0.36 + 1.3) * 0.03;
     }
   });
 
   return (
-    <group position={[6.5, -1.65, -26]}>
+    <group position={[4.2, -1.62, -13]} scale={0.85}>
       <group
         ref={bobRef}
         onClick={(e) => {
@@ -609,20 +610,20 @@ function PalmIsland({
         onPointerOver={() => (document.body.style.cursor = "pointer")}
         onPointerOut={() => (document.body.style.cursor = "auto")}
       >
-        {/* Wet sand ring at the waterline, then the dry dome */}
-        <mesh scale={[2.6, 0.5, 2.1]} material={nutMaterial}>
+        {/* Wet sand ring at the waterline, then a round dry dome */}
+        <mesh scale={[1.65, 0.38, 1.4]} material={nutMaterial}>
           <sphereGeometry args={[1, 24, 12]} />
         </mesh>
         <mesh
-          position={[0, 0.12, 0]}
-          scale={[2.2, 0.75, 1.75]}
+          position={[0, 0.1, 0]}
+          scale={[1.35, 0.62, 1.15]}
           material={sandMaterial}
         >
           <sphereGeometry args={[1, 24, 16]} />
         </mesh>
 
         {/* Palm */}
-        <group position={[-0.35, 0.75, 0]} scale={1.15}>
+        <group position={[-0.25, 0.6, 0]}>
           {TRUNK_RINGS.map((r, i) => (
             <mesh
               key={i}
@@ -634,23 +635,23 @@ function PalmIsland({
             </mesh>
           ))}
 
-          {/* Crown of fronds at the trunk tip */}
-          <group position={[0.3 + 0.02, 1.52, 0]}>
+          {/* Fluffy crown at the trunk tip */}
+          <group position={[0.22, 1.04, 0]}>
             {FROND_SET.map((f, i) => (
               <mesh
                 key={i}
                 geometry={frondGeom}
                 material={leafMaterial}
                 rotation={[0, f.yaw, 0]}
-                scale={[f.len, f.droop, 1]}
+                scale={[f.len, f.droop, 1.35]}
               />
             ))}
-            {/* Coconuts */}
-            <mesh position={[0.07, -0.06, 0.04]} material={nutMaterial}>
-              <sphereGeometry args={[0.055, 10, 8]} />
+            {/* Chunky coconuts */}
+            <mesh position={[0.08, -0.07, 0.05]} material={nutMaterial}>
+              <sphereGeometry args={[0.07, 10, 8]} />
             </mesh>
-            <mesh position={[-0.05, -0.08, -0.05]} material={nutMaterial}>
-              <sphereGeometry args={[0.05, 10, 8]} />
+            <mesh position={[-0.06, -0.09, -0.05]} material={nutMaterial}>
+              <sphereGeometry args={[0.06, 10, 8]} />
             </mesh>
           </group>
         </group>
@@ -827,9 +828,11 @@ function RotatingMagazine({
   const spineX = -(COVER_W / 2);
 
   return (
+    // Raised so the bottom corner clears the wave crests even at full
+    // gyro tilt (corner ≈ -1.07 vs crest ≈ -1.2)
     <group
       ref={wholeRef}
-      position={[0, 0, 0]}
+      position={[0, 0.55, 0]}
       scale={1}
       onPointerDown={handlePointerDown}
     >
