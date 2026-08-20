@@ -172,10 +172,10 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="w-full border-b border-black/10 bg-white/60 backdrop-blur-xl" style={{ willChange: 'auto' }}>
+      <nav className="w-full border-b border-black/10 bg-white/60 backdrop-blur-xl" style={{ willChange: 'auto', paddingTop: 'env(safe-area-inset-top)' }}>
         {/* ─── Desktop navbar (md+) ─── */}
         {/* Slim bar: breathing room around the 36px logo */}
-        <div className="relative hidden md:flex items-center justify-between w-full px-6 py-4 lg:px-8">
+        <div className="relative hidden md:flex items-center justify-between w-full px-6 py-5 lg:px-8">
           {/* Left side */}
           <div className="flex items-center justify-start gap-6 lg:gap-8 flex-1">
             <Link href="/events" className="text-xs uppercase tracking-wider text-black transition-opacity hover:opacity-50">Events</Link>
@@ -237,7 +237,7 @@ export default function Navbar() {
         </div>
 
         {/* ─── Mobile navbar (<md) ─── */}
-        <div className="flex md:hidden items-center justify-between w-full px-4 py-2">
+        <div className="flex md:hidden items-center justify-between w-full px-4 py-3">
           {/* Hamburger button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -270,7 +270,7 @@ export default function Navbar() {
       {mounted && createPortal(
         <div
           className={`fixed inset-0 z-[9990] bg-white transition-all duration-300 md:hidden flex flex-col ${isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
-          style={{ top: 0 }}
+          style={{ top: 0, paddingTop: "env(safe-area-inset-top)" }}
         >
           {/* Header with close button */}
           <div className="flex items-center justify-between px-4 py-4 border-b border-black/10">
