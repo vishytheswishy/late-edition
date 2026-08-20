@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
 import type { EventMeta } from "@/lib/events";
-import SkyTint from "./SkyTint";
 import EventCountdown from "./EventCountdown";
 
 // ── Animation variants ──
@@ -41,8 +40,6 @@ export default function EventsGallery({
 
   return (
     <div className="relative min-h-screen bg-white">
-      {/* A whisper of the homepage's time-of-day sky */}
-      <SkyTint />
       {/* ── Hero: title left, next-event countdown right ── */}
       <section className="relative w-full">
         <div className="container mx-auto px-4">

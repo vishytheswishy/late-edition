@@ -658,17 +658,16 @@ function PalmIsland({
     let targetX = ISLAND_HOME.x;
     let targetZ = ISLAND_HOME.z;
     if (g.enabled) {
-      // ±15° of tilt reaches full travel — the island really crosses
-      // the water, it does not just nudge
-      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -15, 15) / 15;
-      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -15, 15) / 15;
-      targetX += roll * 3.2;
-      targetZ += pitch * 4.5;
+      // A subtle response: full tilt moves the island less than one
+      // unit — it leans with the hand, it does not race across the sea
+      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -25, 25) / 25;
+      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -25, 25) / 25;
+      targetX += roll * 0.6;
+      targetZ += pitch * 0.9;
     }
-    // Firm spring: tracks the hand almost directly, glides the last
-    // stretch home when the phone rests
-    const stiffness = 16;
-    const damping = 3.0;
+    // Soft spring: eases toward the target, glides home at rest
+    const stiffness = 6;
+    const damping = 2.2;
     d.vx += (targetX - d.x) * stiffness * dt;
     d.vx *= Math.exp(-damping * dt);
     d.x += d.vx * dt;
