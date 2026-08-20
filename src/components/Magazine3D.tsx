@@ -563,8 +563,8 @@ function PalmIsland({
         const cols = new Float32Array(posAttr.count * 3);
         // A clean two-tone: sunlit tops, deeper tips. No banding — the
         // mesh is too low-poly for stripes; they smear into blotches.
-        const deep = new THREE.Color("#4c8a55");
-        const light = new THREE.Color("#7cc26b");
+        const deep = new THREE.Color("#5cab68");
+        const light = new THREE.Color("#96e381");
         const c = new THREE.Color();
         for (let i = 0; i < posAttr.count; i++) {
           const x = posAttr.getX(i);
@@ -658,13 +658,17 @@ function PalmIsland({
     let targetX = ISLAND_HOME.x;
     let targetZ = ISLAND_HOME.z;
     if (g.enabled) {
-      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -30, 30) / 30;
-      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -30, 30) / 30;
-      targetX += roll * 1.4;
-      targetZ += pitch * 2.0;
+      // ±15° of tilt reaches full travel — the island really crosses
+      // the water, it does not just nudge
+      const roll = THREE.MathUtils.clamp(g.gamma - g.baseGamma, -15, 15) / 15;
+      const pitch = THREE.MathUtils.clamp(g.beta - g.baseBeta, -15, 15) / 15;
+      targetX += roll * 3.2;
+      targetZ += pitch * 4.5;
     }
-    const stiffness = 3.5;
-    const damping = 1.8;
+    // Firm spring: tracks the hand almost directly, glides the last
+    // stretch home when the phone rests
+    const stiffness = 16;
+    const damping = 3.0;
     d.vx += (targetX - d.x) * stiffness * dt;
     d.vx *= Math.exp(-damping * dt);
     d.x += d.vx * dt;
