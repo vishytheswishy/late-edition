@@ -6,11 +6,6 @@ import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import BombClock from "./BombClock";
-import {
-  computeSkyPalette,
-  orangeCountyHour,
-  skyTextColors,
-} from "@/lib/skyPalette";
 
 // Dynamically import the 3D component to avoid SSR issues
 const Magazine3D = dynamic(() => import("./Magazine3D"), {
@@ -45,20 +40,6 @@ export default function LookbookLayout({ images }: { images: string[] }) {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [hasTouched, setHasTouched] = useState(false);
   const navigated = useRef(false);
-  // Label colours track the sky gradient so text stays readable at
-  // every hour: tinted near-white on dark skies, near-black on light
-  const [overlay, setOverlay] = useState({
-    label: "#111111",
-    accent: "#dc2626",
-  });
-
-  useEffect(() => {
-    const update = () =>
-      setOverlay(skyTextColors(computeSkyPalette(orangeCountyHour())));
-    update();
-    const id = setInterval(update, 30000);
-    return () => clearInterval(id);
-  }, []);
 
   const handleExplore = () => {
     if (navigated.current) return;
@@ -155,7 +136,7 @@ export default function LookbookLayout({ images }: { images: string[] }) {
           }}
         >
           <div
-            className="relative h-full w-full overflow-hidden bg-gray-50 select-none"
+            className="relative h-full w-full overflow-hidden bg-white select-none"
             onPointerDown={() => { if (!hasTouched) setHasTouched(true); }}
           >
             <Magazine3D
@@ -164,20 +145,16 @@ export default function LookbookLayout({ images }: { images: string[] }) {
               spineCover="/cover/spine.jpg"
             />
 
-            {/* Issue number overlay – colours follow the sky gradient */}
             {/* Issue number – top right, in its original face */}
             <div className="absolute top-4 right-4 md:top-6 md:right-6 z-10 pointer-events-none">
-              <p
-                className="text-base md:text-lg uppercase tracking-wider font-medium"
-                style={{ color: overlay.label }}
-              >
+              <p className="text-base md:text-lg uppercase tracking-wider font-medium text-black">
                 ISSUE 002
               </p>
             </div>
 
             {/* Clock – bottom right, one consistent mono line */}
             <div className="absolute bottom-4 right-4 md:bottom-6 md:right-6 z-10 pointer-events-none">
-              <BombClock accent={overlay.accent} />
+              <BombClock accent="#dc2626" />
             </div>
 
             {/* ── Glass-style Explore button – appears after first touch ── */}
